@@ -39,15 +39,19 @@ export default function LeaderboardPage() {
 
     // 3. Apply date filters
     const now = new Date()
+    const getLocalISODate = (d: Date) => {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+
     if (filter === 'Weekly') {
       const day = now.getDay()
       const diff = now.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
       const startOfWeek = new Date(now.setDate(diff))
       startOfWeek.setHours(0,0,0,0)
-      query = query.gte('activity_date', startOfWeek.toISOString().split('T')[0])
+      query = query.gte('activity_date', getLocalISODate(startOfWeek))
     } else if (filter === 'Monthly') {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      query = query.gte('activity_date', startOfMonth.toISOString().split('T')[0])
+      query = query.gte('activity_date', getLocalISODate(startOfMonth))
     }
 
     const { data: runs, error } = await query

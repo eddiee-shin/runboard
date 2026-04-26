@@ -56,10 +56,13 @@ export default function StatsPage() {
 
     // 2. Date Logic
     const now = new Date()
+    const getLocalISODate = (d: Date) => {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
     
     // 1st of current month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const startOfMonthStr = startOfMonth.toISOString().split('T')[0]
+    const startOfMonthStr = getLocalISODate(startOfMonth)
 
     // Monday of current week
     const day = now.getDay()
@@ -68,7 +71,7 @@ export default function StatsPage() {
     const startOfWeek = new Date(now.getTime())
     startOfWeek.setDate(diff)
     startOfWeek.setHours(0,0,0,0)
-    const startOfWeekStr = startOfWeek.toISOString().split('T')[0]
+    const startOfWeekStr = getLocalISODate(startOfWeek)
 
     // We need to fetch runs from the earliest of startOfWeek or startOfMonth
     const minDateStr = startOfWeek < startOfMonth ? startOfWeekStr : startOfMonthStr
