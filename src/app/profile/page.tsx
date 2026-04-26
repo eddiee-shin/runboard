@@ -28,7 +28,7 @@ export default function ProfilePage() {
     fetchProfileData()
 
     // Check for Strava callback status
-    const stravaStatus = searchParams.get('strava')
+    const stravaStatus = searchParams?.get('strava')
     if (stravaStatus === 'connected') {
       setSyncMessage('✅ Strava connected successfully!')
     } else if (stravaStatus === 'error') {
