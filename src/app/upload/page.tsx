@@ -304,6 +304,21 @@ export default function UploadPage() {
 
       {mode === 'manual' && (
         <div className="manual-mode-content">
+          {parseFloat(distanceKm) >= 50 && (
+            <div style={{
+              background: 'rgba(255, 165, 0, 0.1)',
+              border: '1px solid rgba(255, 165, 0, 0.5)',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              color: '#ffb732',
+              marginBottom: '20px',
+              fontSize: '0.9rem',
+              lineHeight: '1.4'
+            }}>
+              ⚠️ <b>50km 이상이 입력되었습니다.</b><br/>단일 러닝 기록이 아닌 '월별 통계' 화면을 업로드하신 것이 아닌지 확인해주세요.
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label">Date</label>
             <input 
