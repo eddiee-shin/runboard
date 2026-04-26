@@ -41,6 +41,12 @@ const parsePace = (str: string) => {
   return sec
 }
 
+// Helper: Get local date string 'YYYY-MM-DD'
+const getLocalDateString = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const APP_SOURCES: Record<string, number> = {
   'nike': 1, 'garmin': 2, 'strava': 3, 'apple': 1
 };
@@ -57,7 +63,7 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null)
   
   // Form State
-  const [activityDate, setActivityDate] = useState(new Date().toISOString().split('T')[0])
+  const [activityDate, setActivityDate] = useState(getLocalDateString())
   const [distanceKm, setDistanceKm] = useState('')
   const [durationStr, setDurationStr] = useState('')
   const [paceStr, setPaceStr] = useState('')
