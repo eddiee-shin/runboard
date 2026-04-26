@@ -17,12 +17,15 @@ export default function StatsPage() {
   
   // Stats
   const [weeklyDistance, setWeeklyDistance] = useState(0)
+  const [monthlyDistance, setMonthlyDistance] = useState(0)
   const [weeklyRuns, setWeeklyRuns] = useState(0)
   const [avgPace, setAvgPace] = useState(0)
   const [avgHeartRate, setAvgHeartRate] = useState(0)
   const [chartData, setChartData] = useState<{label: string, val: number}[]>([])
 
-  const GOAL_KM = 40 // Hardcoded weekly goal for MVP
+  // Goals
+  const [weeklyGoal, setWeeklyGoal] = useState(40) // Default 40
+  const [monthlyGoal, setMonthlyGoal] = useState(150) // Default 150
 
   useEffect(() => {
     fetchStats()
@@ -37,21 +40,46 @@ export default function StatsPage() {
       return
     }
 
-    // Get Monday of current week
+    // 1. Fetch Goals
+    const { data: goals } = await supabase
+      .from('running_goals')
+      .select('goal_type, goal_value')
+      .eq('profile_id', user.id)
+      .in('goal_type', ['weekly_distance_km', 'monthly_distance_km'])
+
+    if (goals) {
+      goals.forEach((g: any) => {
+        if (g.goal_type === 'weekly_distance_km') setWeeklyGoal(g.goal_value)
+        if (g.goal_type === 'monthly_distance_km') setMonthlyGoal(g.goal_value)
+      })
+    }
+
+    // 2. Date Logic
     const now = new Date()
+    
+    // 1st of current month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const startOfMonthStr = startOfMonth.toISOString().split('T')[0]
+
+    // Monday of current week
     const day = now.getDay()
     const diff = now.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
-    const startOfWeek = new Date(now.setDate(diff))
+    // Create new Date instance to avoid mutating
+    const startOfWeek = new Date(now.getTime())
+    startOfWeek.setDate(diff)
     startOfWeek.setHours(0,0,0,0)
-    const startDateStr = startOfWeek.toISOString().split('T')[0]
+    const startOfWeekStr = startOfWeek.toISOString().split('T')[0]
 
-    // Fetch this week's runs for the current user
+    // We need to fetch runs from the earliest of startOfWeek or startOfMonth
+    const minDateStr = startOfWeek < startOfMonth ? startOfWeekStr : startOfMonthStr
+
+    // Fetch runs
     const { data: runs, error } = await supabase
       .from('run_sessions')
       .select('distance_km, duration_sec, pace_sec_per_km, avg_heart_rate, activity_date')
       .eq('profile_id', user.id)
       .eq('status', 'verified')
-      .gte('activity_date', startDateStr)
+      .gte('activity_date', minDateStr)
 
     if (error || !runs) {
       console.error('Error fetching stats', error)
@@ -59,37 +87,51 @@ export default function StatsPage() {
       return
     }
 
-    let totDist = 0
+    let wDist = 0
+    let mDist = 0
     let totPaceSec = 0
     let paceCount = 0
     let totHr = 0
     let hrCount = 0
+    let wRuns = 0
 
     // Initialize chart data for Mon-Sun
     const daysMap = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 } // Sunday is 0
     
     runs.forEach((r: any) => {
       const dist = parseFloat(r.distance_km || 0)
-      totDist += dist
-      
-      const pace = parseInt(r.pace_sec_per_km || 0)
-      if (pace > 0) {
-        totPaceSec += pace
-        paceCount++
+      const rDateStr = r.activity_date
+
+      // Monthly aggregation
+      if (rDateStr >= startOfMonthStr) {
+        mDist += dist
       }
 
-      const hr = parseInt(r.avg_heart_rate || 0)
-      if (hr > 0) {
-        totHr += hr
-        hrCount++
-      }
+      // Weekly aggregation
+      if (rDateStr >= startOfWeekStr) {
+        wDist += dist
+        wRuns++
+        
+        const pace = parseInt(r.pace_sec_per_km || 0)
+        if (pace > 0) {
+          totPaceSec += pace
+          paceCount++
+        }
 
-      const runDate = new Date(r.activity_date)
-      daysMap[runDate.getDay() as keyof typeof daysMap] += dist
+        const hr = parseInt(r.avg_heart_rate || 0)
+        if (hr > 0) {
+          totHr += hr
+          hrCount++
+        }
+
+        const runDate = new Date(rDateStr)
+        daysMap[runDate.getDay() as keyof typeof daysMap] += dist
+      }
     })
 
-    setWeeklyDistance(totDist)
-    setWeeklyRuns(runs.length)
+    setWeeklyDistance(wDist)
+    setMonthlyDistance(mDist)
+    setWeeklyRuns(wRuns)
     setAvgPace(paceCount > 0 ? totPaceSec / paceCount : 0)
     setAvgHeartRate(hrCount > 0 ? Math.round(totHr / hrCount) : 0)
 
@@ -107,7 +149,8 @@ export default function StatsPage() {
     setIsLoading(false)
   }
 
-  const progressPercent = Math.min(100, Math.round((weeklyDistance / GOAL_KM) * 100))
+  const weeklyProgress = Math.min(100, Math.round((weeklyDistance / weeklyGoal) * 100)) || 0
+  const monthlyProgress = Math.min(100, Math.round((monthlyDistance / monthlyGoal) * 100)) || 0
   // Find max for chart scaling
   const maxVal = Math.max(...chartData.map(d => d.val), 10) // min 10km scale
 
@@ -158,15 +201,28 @@ export default function StatsPage() {
             </div>
           </div>
           
-          <div className="chart-section">
-            <h2 className="section-title">Goal Progress</h2>
+          <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h2 className="section-title" style={{ marginBottom: 0 }}>Goal Progress</h2>
+            
+            {/* Weekly Goal */}
             <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Weekly {GOAL_KM}km Goal</span>
-                <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontStyle: 'italic', color: 'var(--volt)' }}>{progressPercent}%</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Weekly {weeklyGoal}km Goal</span>
+                <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontStyle: 'italic', color: 'var(--volt)' }}>{weeklyProgress}%</span>
               </div>
               <div style={{ height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${progressPercent}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
+                <div style={{ height: '100%', width: `${weeklyProgress}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
+              </div>
+            </div>
+
+            {/* Monthly Goal */}
+            <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Monthly {monthlyGoal}km Goal</span>
+                <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontStyle: 'italic', color: 'var(--volt)' }}>{monthlyProgress}%</span>
+              </div>
+              <div style={{ height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${monthlyProgress}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
               </div>
             </div>
           </div>
