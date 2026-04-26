@@ -50,7 +50,8 @@ export async function GET(request: Request) {
     }
 
     console.error('Auth callback error:', error.message)
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+  return NextResponse.redirect(`${origin}/login?error=no_code`)
 }
