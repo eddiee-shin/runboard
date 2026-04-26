@@ -61,6 +61,11 @@ export default function UploadPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Strava
+  const [stravaConnected, setStravaConnected] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState('')
   
   // Form State
   const [activityDate, setActivityDate] = useState(getLocalDateString())
@@ -86,6 +91,10 @@ export default function UploadPage() {
     if (!user) return
 
     const { data: profile } = await supabase.from('profiles').select('running_memo').eq('id', user.id).single()
+
+    // Check Strava connection
+    const { data: stravaToken } = await supabase.from('strava_tokens').select('profile_id').eq('profile_id', user.id).single()
+    setStravaConnected(!!stravaToken)
     const { data: goals } = await supabase.from('running_goals').select('goal_type, goal_value').eq('profile_id', user.id)
 
     let wGoal = null
@@ -228,9 +237,62 @@ export default function UploadPage() {
     }
   }
 
+  const handleStravaSync = async () => {
+    setIsSyncing(true)
+    setSyncMessage('')
+    try {
+      const res = await fetch('/api/strava/sync', { method: 'POST' })
+      const json = await res.json()
+      if (res.ok) {
+        setSyncMessage(`✅ ${json.message}`)
+      } else {
+        setSyncMessage(`❌ ${json.error || 'Sync failed'}`)
+      }
+    } catch (err: any) {
+      setSyncMessage(`❌ ${err.message}`)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   return (
     <div className="content">
       <h2 className="header-title" style={{ fontSize: '2rem', marginBottom: '24px', color: 'var(--text-primary)' }}>ADD RUN</h2>
+
+      {stravaConnected && (
+        <div style={{ marginBottom: '20px' }}>
+          <button
+            onClick={handleStravaSync}
+            disabled={isSyncing}
+            style={{
+              width: '100%',
+              background: '#FC4C02',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '14px',
+              fontSize: '1rem',
+              fontWeight: 600,
+              cursor: isSyncing ? 'wait' : 'pointer',
+              opacity: isSyncing ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
+              <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
+            </svg>
+            {isSyncing ? 'Syncing...' : 'Sync from Strava (Last 7 Days)'}
+          </button>
+          {syncMessage && (
+            <div style={{ marginTop: '8px', fontSize: '0.9rem', textAlign: 'center', color: syncMessage.includes('❌') ? '#ff4444' : 'var(--volt)' }}>
+              {syncMessage}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="upload-mode-toggle">
         <button 
