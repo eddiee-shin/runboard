@@ -1,14 +1,18 @@
 import './globals.css';
 import { Inter, Barlow_Condensed } from 'next/font/google';
-import Navigation from '@/components/Navigation';
 import Link from 'next/link';
+import Navigation from '@/components/Navigation';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const barlowCondensed = Barlow_Condensed({ 
-  weight: ['600', '700', '800'],
-  style: ['normal', 'italic'],
+const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-barlow-condensed'
+  variable: '--font-inter',
+});
+
+const barlowCondensed = Barlow_Condensed({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-barlow-condensed',
 });
 
 export const metadata = {
@@ -22,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${barlowCondensed.variable}`}>
+    <html lang="en" className={`${inter.variable} ${barlowCondensed.variable}`} suppressHydrationWarning>
       <body>
         <div className="app-container">
           <header>

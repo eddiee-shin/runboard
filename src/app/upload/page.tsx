@@ -84,7 +84,7 @@ export default function UploadPage() {
 
     let wGoal = null
     let mGoal = null
-    goals?.forEach(g => {
+    goals?.forEach((g: any) => {
       if (g.goal_type === 'weekly_distance_km') wGoal = g.goal_value
       if (g.goal_type === 'monthly_distance_km') mGoal = g.goal_value
     })

@@ -52,7 +52,7 @@ export default function ProfilePage() {
       .in('goal_type', ['weekly_distance_km', 'monthly_distance_km'])
 
     if (goals) {
-      goals.forEach(g => {
+      goals.forEach((g: any) => {
         if (g.goal_type === 'weekly_distance_km') setWeeklyGoal(g.goal_value.toString())
         if (g.goal_type === 'monthly_distance_km') setMonthlyGoal(g.goal_value.toString())
       })
