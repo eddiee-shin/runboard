@@ -198,79 +198,8 @@ export default function ProfilePage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          <div className="form-group">
-            <label className="form-label">Nickname (Leaderboard Name)</label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="e.g. Fast Runner"
-              value={nickname} 
-              onChange={(e) => setNickname(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div className="form-group">
-              <label className="form-label">Weekly Goal (km)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                placeholder="e.g. 40"
-                value={weeklyGoal} 
-                onChange={(e) => setWeeklyGoal(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Monthly Goal (km)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                placeholder="e.g. 150"
-                value={monthlyGoal} 
-                onChange={(e) => setMonthlyGoal(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Personal Memo for AI Coach</label>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: '1.4' }}>
-              Write any goals, current injuries, or focus areas. The AI will read this and give you personalized coaching feedback when you upload a run!
-            </p>
-            <textarea 
-              className="form-input" 
-              placeholder="e.g. Training for a half marathon in October. Trying to maintain a 5'30 pace. Right knee is a bit sore so taking it easy on downhills."
-              value={memo} 
-              onChange={(e) => setMemo(e.target.value)}
-              style={{ minHeight: '120px', resize: 'vertical' }}
-            />
-          </div>
-
-          {message && (
-            <div style={{ 
-              padding: '12px', 
-              borderRadius: '8px', 
-              background: message.includes('Error') ? 'rgba(255, 68, 68, 0.1)' : 'rgba(212, 255, 0, 0.1)',
-              color: message.includes('Error') ? '#ff4444' : 'var(--volt)',
-              fontSize: '0.9rem',
-              textAlign: 'center'
-            }}>
-              {message}
-            </div>
-          )}
-
-          <button 
-            className="action-btn" 
-            onClick={handleSave} 
-            disabled={isSaving}
-            style={{ marginTop: '10px' }}
-          >
-            {isSaving ? 'SAVING...' : 'SAVE PROFILE'}
-          </button>
-
           {/* ── Strava Section ── */}
           <div style={{ 
-            marginTop: '20px', 
             padding: '20px', 
             background: 'var(--surface-color)', 
             borderRadius: '16px',
@@ -359,6 +288,76 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          <div className="form-group">
+            <label className="form-label">Nickname (Leaderboard Name)</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="e.g. Fast Runner"
+              value={nickname} 
+              onChange={(e) => setNickname(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="form-group">
+              <label className="form-label">Weekly Goal (km)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                placeholder="e.g. 40"
+                value={weeklyGoal} 
+                onChange={(e) => setWeeklyGoal(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Monthly Goal (km)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                placeholder="e.g. 150"
+                value={monthlyGoal} 
+                onChange={(e) => setMonthlyGoal(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Personal Memo for AI Coach</label>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: '1.4' }}>
+              Write any goals, current injuries, or focus areas. The AI will read this and give you personalized coaching feedback when you upload a run!
+            </p>
+            <textarea 
+              className="form-input" 
+              placeholder="e.g. Training for a half marathon in October. Trying to maintain a 5'30 pace. Right knee is a bit sore so taking it easy on downhills."
+              value={memo} 
+              onChange={(e) => setMemo(e.target.value)}
+              style={{ minHeight: '120px', resize: 'vertical' }}
+            />
+          </div>
+
+          {message && (
+            <div style={{ 
+              padding: '12px', 
+              borderRadius: '8px', 
+              background: message.includes('Error') ? 'rgba(255, 68, 68, 0.1)' : 'rgba(212, 255, 0, 0.1)',
+              color: message.includes('Error') ? '#ff4444' : 'var(--volt)',
+              fontSize: '0.9rem',
+              textAlign: 'center'
+            }}>
+              {message}
+            </div>
+          )}
+
+          <button 
+            className="action-btn" 
+            onClick={handleSave} 
+            disabled={isSaving}
+            style={{ marginTop: '10px' }}
+          >
+            {isSaving ? 'SAVING...' : 'SAVE PROFILE'}
+          </button>
 
         </div>
       )}
