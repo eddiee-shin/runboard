@@ -57,10 +57,10 @@ export async function POST() {
         .eq('profile_id', user.id)
     }
 
-    // 3. Fetch recent activities from Strava (last 1 day)
-    const oneDayAgo = Math.floor((Date.now() - 1 * 24 * 60 * 60 * 1000) / 1000)
+    // 3. Fetch recent activities from Strava (last 7 days)
+    const sevenDaysAgo = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000)
     const activitiesRes = await fetch(
-      `https://www.strava.com/api/v3/athlete/activities?after=${oneDayAgo}&per_page=30`,
+      `https://www.strava.com/api/v3/athlete/activities?after=${sevenDaysAgo}&per_page=30`,
       {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       }
