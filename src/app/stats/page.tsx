@@ -22,6 +22,7 @@ export default function StatsPage() {
   const [avgPace, setAvgPace] = useState(0)
   const [avgHeartRate, setAvgHeartRate] = useState(0)
   const [chartData, setChartData] = useState<{label: string, val: number}[]>([])
+  const [recentRuns, setRecentRuns] = useState<any[]>([])
 
   // Goals
   const [weeklyGoal, setWeeklyGoal] = useState(40) // Default 40
@@ -149,7 +150,36 @@ export default function StatsPage() {
       { label: 'S', val: daysMap[0] }
     ])
 
+    // 3. Fetch Recent 5 Runs (All Time)
+    const { data: recent } = await supabase
+      .from('run_sessions')
+      .select('id, activity_date, distance_km, duration_sec, source_app_id')
+      .eq('profile_id', user.id)
+      .eq('status', 'verified')
+      .order('activity_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    if (recent) {
+      setRecentRuns(recent)
+    }
+
     setIsLoading(false)
+  }
+
+  const handleDeleteRun = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this run?')) return
+    
+    setIsLoading(true)
+    const { error } = await supabase.from('run_sessions').delete().eq('id', id)
+    if (error) {
+      console.error('Failed to delete run', error)
+      alert('Failed to delete run')
+      setIsLoading(false)
+    } else {
+      // Refresh all stats
+      fetchStats()
+    }
   }
 
   const weeklyProgress = Math.min(100, Math.round((weeklyDistance / weeklyGoal) * 100)) || 0
@@ -227,6 +257,45 @@ export default function StatsPage() {
               <div style={{ height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${monthlyProgress}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
               </div>
+            </div>
+          </div>
+
+          <div className="chart-section" style={{ marginTop: '32px' }}>
+            <h2 className="section-title">Recent Uploads</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {recentRuns.length === 0 && (
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No recent runs.</div>
+              )}
+              {recentRuns.map(run => (
+                <div key={run.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  background: 'var(--surface-color)', padding: '16px', borderRadius: '12px'
+                }}>
+                  <div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '4px' }}>
+                      {new Date(run.activity_date).toLocaleDateString()}
+                    </div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-barlow-condensed)' }}>
+                      {parseFloat(run.distance_km).toFixed(1)} km
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => handleDeleteRun(run.id)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#ff4444', padding: '8px', borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                    title="Delete Run"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </>
