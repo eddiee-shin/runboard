@@ -1,17 +1,34 @@
 'use client'
 
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
+  const [debugInfo, setDebugInfo] = useState<string>('')
+
   const handleGoogleLogin = async () => {
-    const supabase = createClient()
-    
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
+    try {
+      const supabase = createClient()
+      
+      // Debug: check if supabase client is valid
+      if (!supabase?.auth) {
+        setDebugInfo('Error: Supabase client failed to initialize. Check env vars.')
+        return
+      }
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (error) {
+        setDebugInfo(`OAuth Error: ${error.message}`)
+      }
+    } catch (err: any) {
+      setDebugInfo(`Exception: ${err.message}`)
+    }
   }
 
   return (
@@ -59,6 +76,22 @@ export default function LoginPage() {
         </svg>
         Continue with Google
       </button>
+
+      {debugInfo && (
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '12px 20px', 
+          background: 'rgba(255,68,68,0.1)', 
+          border: '1px solid rgba(255,68,68,0.3)',
+          borderRadius: '8px',
+          color: '#ff6666', 
+          fontSize: '0.85rem',
+          maxWidth: '400px',
+          wordBreak: 'break-all'
+        }}>
+          {debugInfo}
+        </div>
+      )}
 
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '30px', opacity: 0.7 }}>
         By continuing, you agree to our Terms of Service <br />and Privacy Policy.
