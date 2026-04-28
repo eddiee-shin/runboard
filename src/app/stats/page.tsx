@@ -220,9 +220,9 @@ export default function StatsPage() {
               <div className="stat-label">Avg HR</div>
               <div className="stat-number">{avgHeartRate > 0 ? avgHeartRate : '--'} <span className="stat-unit">bpm</span></div>
             </div>
-            <div className="stat-card" style={{ gridColumn: '1 / -1' }}>
+            <div className="stat-card">
               <div className="stat-label">Total Time</div>
-              <div className="stat-number" style={{ color: 'var(--volt)' }}>{formatDuration(filteredDuration)}</div>
+              <div className="stat-number">{formatDuration(filteredDuration)}</div>
             </div>
           </div>
 
