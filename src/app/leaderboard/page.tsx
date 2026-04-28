@@ -160,8 +160,8 @@ export default function LeaderboardPage() {
               const isMe = user.profileId === myProfileId
               const isTop3 = user.rank! <= 3
               
-              const fireThreshold = filter === 'Weekly' ? 3 : filter === 'Monthly' ? 15 : 50;
-              const hasFire = user.totalRuns >= fireThreshold;
+              const fireThreshold = filter === 'Weekly' ? 3 : 15;
+              const hasFire = filter !== 'All Time' && user.totalRuns >= fireThreshold;
 
               // Colors for top 3
               let bg = '#1A202C' // default
