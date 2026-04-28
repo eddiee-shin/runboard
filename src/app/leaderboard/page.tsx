@@ -116,6 +116,25 @@ export default function LeaderboardPage() {
         </div>
       ) : (
         <>
+          {/* Total Crew Distance */}
+          <div style={{
+            background: 'var(--surface-color)',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            marginBottom: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            border: '1px solid rgba(255,255,255,0.05)'
+          }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+              Crew Total ({filter})
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--volt)' }}>
+              {leaderboard.reduce((sum, user) => sum + user.totalDistance, 0).toFixed(1)} <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400 }}>km</span>
+            </div>
+          </div>
+
           {/* My Rank */}
           {myRankData && (
             <div className="my-rank-card">
