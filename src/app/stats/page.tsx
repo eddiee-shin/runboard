@@ -222,7 +222,7 @@ export default function StatsPage() {
             </div>
             <div className="stat-card">
               <div className="stat-label">Total Time</div>
-              <div className="stat-number">{formatDuration(filteredDuration)}</div>
+              <div className="stat-number" style={{ fontSize: '1.8rem' }}>{formatDuration(filteredDuration)}</div>
             </div>
           </div>
 
