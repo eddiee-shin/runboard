@@ -11,14 +11,24 @@ const formatPace = (sec: number) => {
   return `${m}'${s.toString().padStart(2, '0')}"`
 }
 
+const formatDuration = (sec: number) => {
+  if (!sec || isNaN(sec)) return `0h 0m`
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+type FilterType = 'Weekly' | 'Monthly' | 'All Time'
+
 export default function StatsPage() {
   const supabase = createClient()
   const [isLoading, setIsLoading] = useState(true)
+  const [filter, setFilter] = useState<FilterType>('Weekly')
   
   // Stats
-  const [weeklyDistance, setWeeklyDistance] = useState(0)
-  const [monthlyDistance, setMonthlyDistance] = useState(0)
-  const [weeklyRuns, setWeeklyRuns] = useState(0)
+  const [filteredDistance, setFilteredDistance] = useState(0)
+  const [filteredRuns, setFilteredRuns] = useState(0)
+  const [filteredDuration, setFilteredDuration] = useState(0)
   const [avgPace, setAvgPace] = useState(0)
   const [avgHeartRate, setAvgHeartRate] = useState(0)
   const [chartData, setChartData] = useState<{label: string, val: number}[]>([])
@@ -30,7 +40,7 @@ export default function StatsPage() {
 
   useEffect(() => {
     fetchStats()
-  }, [])
+  }, [filter])
 
   const fetchStats = async () => {
     setIsLoading(true)
@@ -61,29 +71,24 @@ export default function StatsPage() {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
     
-    // 1st of current month
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const startOfMonthStr = getLocalISODate(startOfMonth)
-
-    // Monday of current week
-    const day = now.getDay()
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
-    // Create new Date instance to avoid mutating
-    const startOfWeek = new Date(now.getTime())
-    startOfWeek.setDate(diff)
-    startOfWeek.setHours(0,0,0,0)
-    const startOfWeekStr = getLocalISODate(startOfWeek)
-
-    // We need to fetch runs from the earliest of startOfWeek or startOfMonth
-    const minDateStr = startOfWeek < startOfMonth ? startOfWeekStr : startOfMonthStr
-
-    // Fetch runs
-    const { data: runs, error } = await supabase
+    let query = supabase
       .from('run_sessions')
       .select('distance_km, duration_sec, pace_sec_per_km, avg_heart_rate, activity_date')
       .eq('profile_id', user.id)
       .eq('status', 'verified')
-      .gte('activity_date', minDateStr)
+
+    if (filter === 'Weekly') {
+      const day = now.getDay()
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+      const startOfWeek = new Date(now.setDate(diff))
+      startOfWeek.setHours(0,0,0,0)
+      query = query.gte('activity_date', getLocalISODate(startOfWeek))
+    } else if (filter === 'Monthly') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      query = query.gte('activity_date', getLocalISODate(startOfMonth))
+    }
+
+    const { data: runs, error } = await query
 
     if (error || !runs) {
       console.error('Error fetching stats', error)
@@ -91,55 +96,44 @@ export default function StatsPage() {
       return
     }
 
-    let wDist = 0
-    let mDist = 0
+    let fDist = 0
+    let fRuns = 0
+    let fDur = 0
     let totPaceSec = 0
     let paceCount = 0
     let totHr = 0
     let hrCount = 0
-    let wRuns = 0
 
-    // Initialize chart data for Mon-Sun
     const daysMap = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 } // Sunday is 0
     
     runs.forEach((r: any) => {
       const dist = parseFloat(r.distance_km || 0)
-      const rDateStr = r.activity_date
-
-      // Monthly aggregation
-      if (rDateStr >= startOfMonthStr) {
-        mDist += dist
+      fDist += dist
+      fRuns++
+      fDur += parseInt(r.duration_sec || 0)
+      
+      const pace = parseInt(r.pace_sec_per_km || 0)
+      if (pace > 0) {
+        totPaceSec += pace
+        paceCount++
       }
 
-      // Weekly aggregation
-      if (rDateStr >= startOfWeekStr) {
-        wDist += dist
-        wRuns++
-        
-        const pace = parseInt(r.pace_sec_per_km || 0)
-        if (pace > 0) {
-          totPaceSec += pace
-          paceCount++
-        }
-
-        const hr = parseInt(r.avg_heart_rate || 0)
-        if (hr > 0) {
-          totHr += hr
-          hrCount++
-        }
-
-        const runDate = new Date(rDateStr)
-        daysMap[runDate.getDay() as keyof typeof daysMap] += dist
+      const hr = parseInt(r.avg_heart_rate || 0)
+      if (hr > 0) {
+        totHr += hr
+        hrCount++
       }
+
+      const runDate = new Date(r.activity_date)
+      daysMap[runDate.getDay() as keyof typeof daysMap] += dist
     })
 
-    setWeeklyDistance(wDist)
-    setMonthlyDistance(mDist)
-    setWeeklyRuns(wRuns)
+    setFilteredDistance(fDist)
+    setFilteredRuns(fRuns)
+    setFilteredDuration(fDur)
     setAvgPace(paceCount > 0 ? totPaceSec / paceCount : 0)
     setAvgHeartRate(hrCount > 0 ? Math.round(totHr / hrCount) : 0)
 
-    // Format chart array [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
     setChartData([
       { label: 'M', val: daysMap[1] },
       { label: 'T', val: daysMap[2] },
@@ -177,18 +171,32 @@ export default function StatsPage() {
       alert('Failed to delete run')
       setIsLoading(false)
     } else {
-      // Refresh all stats
       fetchStats()
     }
   }
 
-  const weeklyProgress = Math.min(100, Math.round((weeklyDistance / weeklyGoal) * 100)) || 0
-  const monthlyProgress = Math.min(100, Math.round((monthlyDistance / monthlyGoal) * 100)) || 0
-  // Find max for chart scaling
-  const maxVal = Math.max(...chartData.map(d => d.val), 10) // min 10km scale
+  // Calculate goal progress based on current filter (only relevant if not all-time)
+  const isWeekly = filter === 'Weekly'
+  const isMonthly = filter === 'Monthly'
+  const currentGoal = isMonthly ? monthlyGoal : weeklyGoal
+  const currentProgress = Math.min(100, Math.round((filteredDistance / currentGoal) * 100)) || 0
+
+  const maxVal = Math.max(...chartData.map(d => d.val), 10)
 
   return (
     <div className="content active">
+      <div className="filter-chips">
+        {['Weekly', 'Monthly', 'All Time'].map(f => (
+          <div 
+            key={f}
+            className={`chip ${filter === f ? 'active' : ''}`}
+            onClick={() => setFilter(f as FilterType)}
+          >
+            {f}
+          </div>
+        ))}
+      </div>
+
       {isLoading ? (
         <div style={{ textAlign: 'center', marginTop: '40px', color: 'var(--text-secondary)' }}>
           Loading stats...
@@ -197,12 +205,12 @@ export default function StatsPage() {
         <>
           <div className="stats-grid">
             <div className="stat-card main">
-              <div className="stat-label">This Week</div>
-              <div className="stat-number">{weeklyDistance.toFixed(1)} <span className="stat-unit">km</span></div>
+              <div className="stat-label">{filter} Distance</div>
+              <div className="stat-number">{filteredDistance.toFixed(1)} <span className="stat-unit">km</span></div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Runs</div>
-              <div className="stat-number">{weeklyRuns}</div>
+              <div className="stat-number">{filteredRuns}</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Avg Pace</div>
@@ -212,10 +220,14 @@ export default function StatsPage() {
               <div className="stat-label">Avg HR</div>
               <div className="stat-number">{avgHeartRate > 0 ? avgHeartRate : '--'} <span className="stat-unit">bpm</span></div>
             </div>
+            <div className="stat-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="stat-label">Total Time</div>
+              <div className="stat-number" style={{ color: 'var(--volt)' }}>{formatDuration(filteredDuration)}</div>
+            </div>
           </div>
 
           <div className="chart-section">
-            <h2 className="section-title">Weekly Distance</h2>
+            <h2 className="section-title">Activity by Day of Week</h2>
             <div className="chart-container">
               {chartData.map((d, i) => {
                 const heightPct = Math.max(0, (d.val / maxVal) * 100)
@@ -234,31 +246,21 @@ export default function StatsPage() {
             </div>
           </div>
           
-          <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h2 className="section-title" style={{ marginBottom: 0 }}>Goal Progress</h2>
-            
-            {/* Weekly Goal */}
-            <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Weekly {weeklyGoal}km Goal</span>
-                <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontStyle: 'italic', color: 'var(--volt)' }}>{weeklyProgress}%</span>
-              </div>
-              <div style={{ height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${weeklyProgress}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
-              </div>
-            </div>
-
-            {/* Monthly Goal */}
-            <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Monthly {monthlyGoal}km Goal</span>
-                <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontStyle: 'italic', color: 'var(--volt)' }}>{monthlyProgress}%</span>
-              </div>
-              <div style={{ height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${monthlyProgress}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
+          {filter !== 'All Time' && (
+            <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h2 className="section-title" style={{ marginBottom: 0 }}>Goal Progress</h2>
+              
+              <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{filter} {currentGoal}km Goal</span>
+                  <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontStyle: 'italic', color: 'var(--volt)' }}>{currentProgress}%</span>
+                </div>
+                <div style={{ height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${currentProgress}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="chart-section" style={{ marginTop: '32px' }}>
             <h2 className="section-title">Recent Uploads</h2>
