@@ -160,6 +160,9 @@ export default function LeaderboardPage() {
               const isMe = user.profileId === myProfileId
               const isTop3 = user.rank! <= 3
               
+              const fireThreshold = filter === 'Weekly' ? 3 : filter === 'Monthly' ? 15 : 50;
+              const hasFire = user.totalRuns >= fireThreshold;
+
               // Colors for top 3
               let bg = '#1A202C' // default
               if (user.rank === 1) bg = 'var(--volt)' // Volt
@@ -176,7 +179,7 @@ export default function LeaderboardPage() {
                   <div className="rank-details">
                     <div className="rank-name">
                       {user.displayName} {isMe ? '(Me)' : ''}
-                      {user.totalRuns >= 3 && <span className="fire-icon" title="On Fire! (3+ runs)">🔥</span>}
+                      {hasFire && <span className="fire-icon" title={`On Fire! (${fireThreshold}+ runs)`}>🔥</span>}
                     </div>
                     <div className="rank-meta">{user.totalRuns} runs</div>
                   </div>
