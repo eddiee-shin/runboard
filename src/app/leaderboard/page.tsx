@@ -162,7 +162,7 @@ export default function LeaderboardPage() {
               
               // Colors for top 3
               let bg = '#1A202C' // default
-              if (user.rank === 1) bg = '#D4FF00' // Volt
+              if (user.rank === 1) bg = 'var(--volt)' // Volt
               else if (user.rank === 2) bg = '#CBD5E0' // Silver
               else if (user.rank === 3) bg = '#A0AEC0' // Bronze
               if (isMe && !isTop3) bg = 'var(--volt)'
@@ -174,7 +174,10 @@ export default function LeaderboardPage() {
                     {getInitials(user.displayName)}
                   </div>
                   <div className="rank-details">
-                    <div className="rank-name">{user.displayName} {isMe ? '(Me)' : ''}</div>
+                    <div className="rank-name">
+                      {user.displayName} {isMe ? '(Me)' : ''}
+                      {user.totalRuns >= 3 && <span className="fire-icon" title="On Fire! (3+ runs)">🔥</span>}
+                    </div>
                     <div className="rank-meta">{user.totalRuns} runs</div>
                   </div>
                   <div className="rank-score">
