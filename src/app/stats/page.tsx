@@ -43,6 +43,10 @@ export default function StatsPage() {
     fetchStats()
   }, [filter])
 
+  const getMonthLabel = (date: Date) => {
+    return date.toLocaleString('default', { month: 'short' })
+  }
+
   const fetchStats = async () => {
     setIsLoading(true)
     
@@ -137,15 +141,40 @@ export default function StatsPage() {
     setAvgPace(paceCount > 0 ? totPaceSec / paceCount : 0)
     setAvgHeartRate(hrCount > 0 ? Math.round(totHr / hrCount) : 0)
 
-    setChartData([
-      { label: 'M', val: daysMap[1] },
-      { label: 'T', val: daysMap[2] },
-      { label: 'W', val: daysMap[3] },
-      { label: 'T', val: daysMap[4] },
-      { label: 'F', val: daysMap[5] },
-      { label: 'S', val: daysMap[6] },
-      { label: 'S', val: daysMap[0] }
-    ])
+    if (filter === 'All Time') {
+      // Monthly chart for last 6 months
+      const monthlyMap: Record<string, number> = {}
+      const monthLabels: string[] = []
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date()
+        d.setMonth(d.getMonth() - i)
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        monthlyMap[key] = 0
+        monthLabels.push(getMonthLabel(d))
+      }
+
+      runs.forEach((r: any) => {
+        const rDate = new Date(r.activity_date)
+        const key = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`
+        if (monthlyMap[key] !== undefined) {
+          monthlyMap[key] += parseFloat(r.distance_km || 0)
+        }
+      })
+
+      const keys = Object.keys(monthlyMap).sort()
+      setChartData(keys.map((k, i) => ({ label: monthLabels[i], val: monthlyMap[k] })))
+    } else {
+      // Weekly chart
+      setChartData([
+        { label: 'M', val: daysMap[1] },
+        { label: 'T', val: daysMap[2] },
+        { label: 'W', val: daysMap[3] },
+        { label: 'T', val: daysMap[4] },
+        { label: 'F', val: daysMap[5] },
+        { label: 'S', val: daysMap[6] },
+        { label: 'S', val: daysMap[0] }
+      ])
+    }
 
     // 3. Fetch Recent 5 Runs (All Time)
     const { data: recent } = await supabase
@@ -240,9 +269,9 @@ export default function StatsPage() {
             </div>
           </div>
 
-          {filter === 'Weekly' && (
+          {filter !== 'Today' && filter !== 'Monthly' && (
             <div className="chart-section">
-              <h2 className="section-title">Activity by Day of Week</h2>
+              <h2 className="section-title">{filter === 'All Time' ? 'Monthly Distance (Last 6m)' : 'Activity by Day of Week'}</h2>
               <div className="chart-container">
                 {chartData.map((d, i) => {
                   const heightPct = Math.max(0, (d.val / maxVal) * 100)
