@@ -240,7 +240,7 @@ export default function StatsPage() {
             </div>
           </div>
 
-          {filter !== 'Today' && (
+          {filter === 'Weekly' && (
             <div className="chart-section">
               <h2 className="section-title">Activity by Day of Week</h2>
               <div className="chart-container">
