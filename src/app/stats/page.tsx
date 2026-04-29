@@ -240,28 +240,31 @@ export default function StatsPage() {
             </div>
           </div>
 
-          <div className="chart-section">
-            <h2 className="section-title">Activity by Day of Week</h2>
-            <div className="chart-container">
-              {chartData.map((d, i) => {
-                const heightPct = Math.max(0, (d.val / maxVal) * 100)
-                const isActive = d.val > 0
-                return (
-                  <div 
-                    key={i} 
-                    className={`bar ${isActive ? 'active' : ''}`} 
-                    style={{ height: `${heightPct}%` }}
-                    title={`${d.val.toFixed(1)} km`}
-                  >
-                    <span className="bar-label">{d.label}</span>
-                  </div>
-                )
-              })}
+          {filter !== 'Today' && (
+            <div className="chart-section">
+              <h2 className="section-title">Activity by Day of Week</h2>
+              <div className="chart-container">
+                {chartData.map((d, i) => {
+                  const heightPct = Math.max(0, (d.val / maxVal) * 100)
+                  const isActive = d.val > 0
+                  return (
+                    <div 
+                      key={i} 
+                      className={`bar ${isActive ? 'active' : ''}`} 
+                      style={{ height: `${heightPct}%` }}
+                      title={`${d.val.toFixed(1)} km`}
+                    >
+                      <span className="bar-label">{d.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
           
-            <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h2 className="section-title" style={{ marginBottom: 0 }}>Goal Progress</h2>
+            {(filter === 'Weekly' || filter === 'Monthly') && (
+              <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Goal Progress</h2>
               
               <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
