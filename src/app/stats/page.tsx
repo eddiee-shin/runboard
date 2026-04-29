@@ -271,7 +271,7 @@ export default function StatsPage() {
 
           {filter !== 'Today' && filter !== 'Monthly' && (
             <div className="chart-section">
-              <h2 className="section-title">{filter === 'All Time' ? 'Monthly Distance (Last 6m)' : 'Activity by Day of Week'}</h2>
+              <h2 className="section-title" style={{ fontSize: '1.2rem' }}>{filter === 'All Time' ? 'Monthly Distance (Last 6m)' : 'Activity by Day of Week'}</h2>
               <div className="chart-container">
                 {chartData.map((d, i) => {
                   const heightPct = Math.max(0, (d.val / maxVal) * 100)
@@ -280,9 +280,23 @@ export default function StatsPage() {
                     <div 
                       key={i} 
                       className={`bar ${isActive ? 'active' : ''}`} 
-                      style={{ height: `${heightPct}%` }}
+                      style={{ height: `${heightPct}%`, position: 'relative' }}
                       title={`${d.val.toFixed(1)} km`}
                     >
+                      {isActive && (
+                        <span style={{ 
+                          position: 'absolute', 
+                          top: '-20px', 
+                          left: '50%', 
+                          transform: 'translateX(-50%)', 
+                          fontSize: '0.7rem', 
+                          color: 'var(--volt)',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {d.val >= 10 ? Math.round(d.val) : d.val.toFixed(1)}
+                        </span>
+                      )}
                       <span className="bar-label">{d.label}</span>
                     </div>
                   )
@@ -293,7 +307,7 @@ export default function StatsPage() {
           
             {(filter === 'Weekly' || filter === 'Monthly') && (
               <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h2 className="section-title" style={{ marginBottom: 0 }}>Goal Progress</h2>
+                <h2 className="section-title" style={{ marginBottom: 0, fontSize: '1.2rem' }}>Goal Progress</h2>
               
               <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -307,7 +321,7 @@ export default function StatsPage() {
 
               {filter === 'Monthly' && (
                 <div className="chart-section" style={{ marginTop: '16px' }}>
-                  <h2 className="section-title">Monthly Calendar</h2>
+                  <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Monthly Calendar</h2>
                   <div className="calendar-grid" style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(7, 1fr)',
@@ -362,7 +376,7 @@ export default function StatsPage() {
 
 
           <div className="chart-section" style={{ marginTop: '32px' }}>
-            <h2 className="section-title">Recent Uploads</h2>
+            <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Recent Uploads</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {recentRuns.length === 0 && (
                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No recent runs.</div>
