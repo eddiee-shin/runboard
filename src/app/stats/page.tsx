@@ -260,7 +260,6 @@ export default function StatsPage() {
             </div>
           </div>
           
-          {filter !== 'All Time' && (
             <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <h2 className="section-title" style={{ marginBottom: 0 }}>Goal Progress</h2>
               
@@ -273,59 +272,62 @@ export default function StatsPage() {
                   <div style={{ height: '100%', width: `${currentProgress}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
                 </div>
               </div>
+
+              {filter === 'Monthly' && (
+                <div className="chart-section" style={{ marginTop: '16px' }}>
+                  <h2 className="section-title">Monthly Calendar</h2>
+                  <div className="calendar-grid" style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(7, 1fr)',
+                    gap: '8px',
+                    background: 'var(--surface-color)',
+                    padding: '16px',
+                    borderRadius: '16px'
+                  }}>
+                    {['S','M','T','W','T','F','S'].map((d, i) => (
+                      <div key={i} style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>{d}</div>
+                    ))}
+                    {(() => {
+                      const now = new Date()
+                      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+                      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+                      const days = []
+                      
+                      for (let i = 0; i < start.getDay(); i++) {
+                        days.push(<div key={`pad-${i}`} />)
+                      }
+                      
+                      for (let d = 1; d <= end.getDate(); d++) {
+                        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+                        const hasRun = allVerifiedRuns.some(r => r.activity_date === dateStr)
+                        const isToday = d === now.getDate()
+                        
+                        days.push(
+                          <div key={d} style={{
+                            aspectRatio: '1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '50%',
+                            fontSize: '0.9rem',
+                            background: hasRun ? 'var(--volt)' : isToday ? 'var(--surface-hover)' : 'transparent',
+                            color: hasRun ? '#000' : isToday ? 'var(--volt)' : 'var(--text-primary)',
+                            fontWeight: hasRun || isToday ? 700 : 400,
+                            border: isToday ? '1px solid var(--volt)' : 'none'
+                          }}>
+                            {d}
+                          </div>
+                        )
+                      }
+                      return days
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="chart-section" style={{ marginTop: '32px' }}>
-            <h2 className="section-title">Monthly Calendar</h2>
-            <div className="calendar-grid" style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: '8px',
-              background: 'var(--surface-color)',
-              padding: '16px',
-              borderRadius: '16px'
-            }}>
-              {['S','M','T','W','T','F','S'].map((d, i) => (
-                <div key={i} style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>{d}</div>
-              ))}
-              {(() => {
-                const now = new Date()
-                const start = new Date(now.getFullYear(), now.getMonth(), 1)
-                const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-                const days = []
-                
-                // Padding for first day of month
-                for (let i = 0; i < start.getDay(); i++) {
-                  days.push(<div key={`pad-${i}`} />)
-                }
-                
-                for (let d = 1; d <= end.getDate(); d++) {
-                  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-                  const hasRun = allVerifiedRuns.some(r => r.activity_date === dateStr)
-                  const isToday = d === now.getDate()
-                  
-                  days.push(
-                    <div key={d} style={{
-                      aspectRatio: '1',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '50%',
-                      fontSize: '0.9rem',
-                      background: hasRun ? 'var(--volt)' : isToday ? 'var(--surface-hover)' : 'transparent',
-                      color: hasRun ? '#000' : isToday ? 'var(--volt)' : 'var(--text-primary)',
-                      fontWeight: hasRun || isToday ? 700 : 400,
-                      border: isToday ? '1px solid var(--volt)' : 'none'
-                    }}>
-                      {d}
-                    </div>
-                  )
-                }
-                return days
-              })()}
-            </div>
-          </div>
+
 
           <div className="chart-section" style={{ marginTop: '32px' }}>
             <h2 className="section-title">Recent Uploads</h2>
