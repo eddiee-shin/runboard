@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type FilterType = 'Weekly' | 'Monthly' | 'All Time'
+type FilterType = 'Today' | 'Weekly' | 'Monthly' | 'All Time'
 
 interface UserRank {
   profileId: string
@@ -16,7 +16,7 @@ interface UserRank {
 
 export default function LeaderboardPage() {
   const supabase = createClient()
-  const [filter, setFilter] = useState<FilterType>('Weekly')
+  const [filter, setFilter] = useState<FilterType>('Today')
   const [leaderboard, setLeaderboard] = useState<UserRank[]>([])
   const [myProfileId, setMyProfileId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -43,7 +43,9 @@ export default function LeaderboardPage() {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
 
-    if (filter === 'Weekly') {
+    if (filter === 'Today') {
+      query = query.eq('activity_date', getLocalISODate(now))
+    } else if (filter === 'Weekly') {
       const day = now.getDay()
       const diff = now.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
       const startOfWeek = new Date(now.setDate(diff))
@@ -99,7 +101,7 @@ export default function LeaderboardPage() {
   return (
     <div className="content active">
       <div className="filter-chips">
-        {['Weekly', 'Monthly', 'All Time'].map(f => (
+        {['Today', 'Weekly', 'Monthly', 'All Time'].map(f => (
           <div 
             key={f}
             className={`chip ${filter === f ? 'active' : ''}`}
@@ -161,7 +163,7 @@ export default function LeaderboardPage() {
               const isTop3 = user.rank! <= 3
               
               const fireThreshold = filter === 'Weekly' ? 3 : 15;
-              const hasFire = filter !== 'All Time' && user.totalRuns >= fireThreshold;
+              const hasFire = (filter === 'Weekly' || filter === 'Monthly') && user.totalRuns >= fireThreshold;
 
               // Colors for top 3
               let bg = '#1A202C' // default
