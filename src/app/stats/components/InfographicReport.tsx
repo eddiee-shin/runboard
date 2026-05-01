@@ -173,32 +173,44 @@ export default function InfographicReport({ data }: InfographicProps) {
             <div style={{ position: 'absolute', top: '75%', left: 0, right: 0, borderTop: '1px dashed #F5F5F0', zIndex: 0 }} />
 
             {/* Cumulative Line Path */}
-            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, overflow: 'visible' }}>
+            <svg 
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, overflow: 'visible' }}
+              viewBox="0 0 350 120"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="cumGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="rgba(94, 139, 97, 0.3)" />
+                  <stop offset="100%" stopColor="rgba(94, 139, 97, 0)" />
+                </linearGradient>
+              </defs>
               {(() => {
                 let cumulative = 0
+                const numDays = data.dailyDistances.length
                 const points = data.dailyDistances.map((d, i) => {
                   cumulative += d.distance
-                  const x = (i / (data.dailyDistances.length - 1)) * 100
-                  const y = 100 - (cumulative / (data.totalDistance || 1)) * 100
-                  return `${x}% ${y}%`
+                  const x = (i / (numDays - 1)) * 350
+                  const y = 120 - (cumulative / (data.totalDistance || 1)) * 110 - 5
+                  return { x, y }
                 })
+                
+                const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+                const areaData = `${pathData} L 350 120 L 0 120 Z`
+                
                 return (
                   <>
+                    <path d={areaData} fill="url(#cumGradient)" stroke="none" />
                     <path 
-                      d={`M ${points.join(' L ')}`}
-                      fill="none"
-                      stroke="rgba(94, 139, 97, 0.4)"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path 
-                      d={`M ${points.join(' L ')}`}
+                      d={pathData}
                       fill="none"
                       stroke="#5E8B61"
-                      strokeWidth="1.5"
+                      strokeWidth="2.5"
                       strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
                     />
+                    {/* End point dot */}
+                    <circle cx={points[points.length-1].x} cy={points[points.length-1].y} r="4" fill="#5E8B61" stroke="#FFF" strokeWidth="2" />
                   </>
                 )
               })()}
