@@ -18,6 +18,16 @@ const barlowCondensed = Barlow_Condensed({
 export const metadata = {
   title: 'RunBoard',
   description: 'Running tracker and crew leaderboard',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'RunBoard',
+  },
+  themeColor: '#000000',
+  icons: {
+    apple: '/apple-touch-icon.png',
+  }
 };
 
 export default function RootLayout({
