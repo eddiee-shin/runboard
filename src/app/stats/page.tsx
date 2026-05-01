@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import html2canvas from 'html2canvas'
+import InfographicReport from './components/InfographicReport'
 
 // Helper: Format seconds per km to M'SS"
 const formatPace = (sec: number) => {
@@ -34,6 +36,12 @@ export default function StatsPage() {
   const [chartData, setChartData] = useState<{label: string, val: number}[]>([])
   const [recentRuns, setRecentRuns] = useState<any[]>([])
   const [allVerifiedRuns, setAllVerifiedRuns] = useState<any[]>([])
+  const [userName, setUserName] = useState('')
+  
+  // Infographic state
+  const [showInfographic, setShowInfographic] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
+  const [reportData, setReportData] = useState<any>(null)
 
   // Goals
   const [weeklyGoal, setWeeklyGoal] = useState(40) // Default 40
@@ -55,6 +63,10 @@ export default function StatsPage() {
       setIsLoading(false)
       return
     }
+
+    // Get user profile name
+    const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).single()
+    if (profile) setUserName(profile.display_name || 'Anonymous')
 
     // 1. Fetch Goals
     const { data: goals } = await supabase
@@ -199,9 +211,76 @@ export default function StatsPage() {
     
     if (allRuns) {
       setAllVerifiedRuns(allRuns)
+      
+      // Prepare infographic data for current month
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      const daysInMonth = endOfMonth.getDate()
+      
+      const dailyMap: Record<number, number> = {}
+      for (let i = 1; i <= daysInMonth; i++) dailyMap[i] = 0
+      
+      let mDist = 0
+      let mRuns = 0
+      let mDur = 0
+      let mPaceTot = 0
+      let mPaceCount = 0
+      let mHrTot = 0
+      let mHrCount = 0
+      let bestR: any = null
+
+      const currentMonthRuns = runs.filter((r: any) => filter === 'Monthly') // if already monthly, use runs
+      // But we want ALL runs of this month regardless of filter for the report
+      const { data: thisMonthRuns } = await supabase
+        .from('run_sessions')
+        .select('*')
+        .eq('profile_id', user.id)
+        .eq('status', 'verified')
+        .gte('activity_date', getLocalISODate(startOfMonth))
+        .lte('activity_date', getLocalISODate(endOfMonth))
+
+      if (thisMonthRuns) {
+        thisMonthRuns.forEach((r: any) => {
+          const d = new Date(r.activity_date).getDate()
+          const dist = parseFloat(r.distance_km || 0)
+          dailyMap[d] += dist
+          mDist += dist
+          mRuns++
+          mDur += parseInt(r.duration_sec || 0)
+          const p = parseInt(r.pace_sec_per_km || 0)
+          if (p > 0) { mPaceTot += p; mPaceCount++ }
+          const hr = parseInt(r.avg_heart_rate || 0)
+          if (hr > 0) { mHrTot += hr; mHrCount++ }
+          if (!bestR || dist > parseFloat(bestR.distance_km)) bestR = r
+        })
+      }
+
+      setReportData({
+        month: now.toLocaleString('default', { month: 'long', year: 'numeric' }),
+        totalDistance: mDist,
+        totalRuns: mRuns,
+        totalDurationSec: mDur,
+        avgPace: mPaceCount > 0 ? mPaceTot / mPaceCount : 0,
+        avgHeartRate: mHrCount > 0 ? Math.round(mHrTot / mHrCount) : 0,
+        dailyDistances: Object.entries(dailyMap).map(([day, distance]) => ({ day: parseInt(day), distance })),
+        bestRun: bestR ? { distance: parseFloat(bestR.distance_km), date: bestR.activity_date } : null,
+        displayName: profile?.display_name || 'Runner'
+      })
     }
 
     setIsLoading(false)
+  }
+
+  const handleDownload = async () => {
+    if (!reportRef.current) return
+    const canvas = await html2canvas(reportRef.current, {
+      scale: 2, // Higher quality
+      backgroundColor: '#F9F9F4'
+    })
+    const link = document.createElement('a')
+    link.download = `RunBoard_Report_${reportData?.month}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
   }
 
   const handleDeleteRun = async (id: string) => {
@@ -321,7 +400,24 @@ export default function StatsPage() {
 
               {filter === 'Monthly' && (
                 <div className="chart-section" style={{ marginTop: '16px' }}>
-                  <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Monthly Calendar</h2>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h2 className="section-title" style={{ fontSize: '1.2rem', marginBottom: 0 }}>Monthly Calendar</h2>
+                    <button 
+                      onClick={() => setShowInfographic(true)}
+                      style={{
+                        background: 'var(--volt)',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '20px',
+                        padding: '6px 14px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Generate Report
+                    </button>
+                  </div>
                   <div className="calendar-grid" style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(7, 1fr)',
@@ -414,6 +510,41 @@ export default function StatsPage() {
             </div>
           </div>
         </>
+      )}
+    </div>
+      
+      {/* Infographic Overlay */}
+      {showInfographic && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.9)',
+          zIndex: 1000,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          overflowY: 'auto'
+        }}>
+          <div style={{ width: '100%', maxWidth: '400px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
+            <button 
+              onClick={() => setShowInfographic(false)}
+              style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', fontSize: '1rem' }}
+            >
+              Close
+            </button>
+            <button 
+              onClick={handleDownload}
+              style={{ background: 'var(--volt)', border: 'none', color: '#000', padding: '8px 20px', borderRadius: '20px', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Save as Image
+            </button>
+          </div>
+          <div ref={reportRef}>
+            {reportData && <InfographicReport data={reportData} />}
+          </div>
+        </div>
       )}
     </div>
   )
