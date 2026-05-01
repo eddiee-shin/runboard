@@ -146,37 +146,80 @@ export default function InfographicReport({ data }: InfographicProps) {
           </div>
         </div>
 
-        {/* Daily Trend Chart */}
+        {/* Daily Trend Chart (Bars + Cumulative Line) */}
         <div style={{ 
           background: '#FFF', 
           borderRadius: '24px', 
           padding: '20px', 
           marginBottom: '20px',
           border: '1px solid #EEE',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.02)'
+          boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
+          position: 'relative'
         }}>
           <h3 style={{ fontSize: '11px', textAlign: 'left', marginBottom: '20px', fontWeight: 800, fontStyle: 'italic', textTransform: 'uppercase', color: '#111', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Zap size={12} color="#0D2B1D" /> DAILY TREND
+            <Zap size={12} color="#0D2B1D" /> DAILY TREND & CUMULATIVE
           </h3>
           <div style={{ 
-            height: '110px', 
+            height: '120px', 
             display: 'flex', 
             alignItems: 'flex-end', 
             justifyContent: 'space-between',
             position: 'relative',
             padding: '0 5px'
           }}>
-            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: '1px dashed #F0F0F0', zIndex: 0 }} />
+            {/* Grid Lines */}
+            <div style={{ position: 'absolute', top: '25%', left: 0, right: 0, borderTop: '1px dashed #F5F5F0', zIndex: 0 }} />
+            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: '1px dashed #F5F5F0', zIndex: 0 }} />
+            <div style={{ position: 'absolute', top: '75%', left: 0, right: 0, borderTop: '1px dashed #F5F5F0', zIndex: 0 }} />
+
+            {/* Cumulative Line Path */}
+            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, overflow: 'visible' }}>
+              {(() => {
+                let cumulative = 0
+                const points = data.dailyDistances.map((d, i) => {
+                  cumulative += d.distance
+                  const x = (i / (data.dailyDistances.length - 1)) * 100
+                  const y = 100 - (cumulative / (data.totalDistance || 1)) * 100
+                  return `${x}% ${y}%`
+                })
+                return (
+                  <>
+                    <path 
+                      d={`M ${points.join(' L ')}`}
+                      fill="none"
+                      stroke="rgba(94, 139, 97, 0.4)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path 
+                      d={`M ${points.join(' L ')}`}
+                      fill="none"
+                      stroke="#5E8B61"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </>
+                )
+              })()}
+            </svg>
+
+            {/* Daily Bars */}
             {data.dailyDistances.map((d, i) => (
               <div key={i} style={{ width: '6px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', position: 'relative', zIndex: 1 }}>
                 {d.distance > 0 && (
-                  <span style={{ fontSize: '7px', fontWeight: 800, marginBottom: '4px', color: '#5E8B61', position: 'absolute', top: `calc(${100 - (d.distance / maxDist) * 100}% - 14px)` }}>
+                  <span style={{ fontSize: '7px', fontWeight: 800, marginBottom: '4px', color: '#5E8B61', position: 'absolute', top: `calc(${100 - (d.distance / maxDist) * 100}% - 14px)`, zIndex: 3 }}>
                     {d.distance >= 1 ? Math.round(d.distance) : d.distance.toFixed(1)}
                   </span>
                 )}
-                <div style={{ width: '100%', background: d.distance > 0 ? '#5E8B61' : '#F5F5F0', height: d.distance > 0 ? `${(d.distance / maxDist) * 100}%` : '4px', borderRadius: '3px' }} />
+                <div style={{ width: '100%', background: d.distance > 0 ? 'rgba(94, 139, 97, 0.2)' : '#F5F5F0', height: d.distance > 0 ? `${(d.distance / maxDist) * 100}%` : '2px', borderRadius: '3px', transition: 'all 0.3s' }} />
               </div>
             ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+            <span style={{ fontSize: '8px', color: '#BBB', fontWeight: 700 }}>1ST</span>
+            <span style={{ fontSize: '8px', color: '#BBB', fontWeight: 700 }}>{data.month.split(' ')[0].toUpperCase()} PROGRESS</span>
+            <span style={{ fontSize: '8px', color: '#BBB', fontWeight: 700 }}>{data.dailyDistances.length}TH</span>
           </div>
         </div>
 
