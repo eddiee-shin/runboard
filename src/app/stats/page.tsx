@@ -323,7 +323,7 @@ export default function StatsPage() {
       alert('Failed to delete run')
       setIsLoading(false)
     } else {
-      fetchStats()
+      await fetchStats() // Ensure we wait for fetchStats to complete
     }
   }
 
