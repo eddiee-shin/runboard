@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import { format } from 'date-fns'
 
 interface InfographicProps {
   data: {
