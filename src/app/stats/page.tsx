@@ -541,8 +541,6 @@ export default function StatsPage() {
           </div>
         </>
       )}
-    </div>
-      
       {/* Infographic Overlay */}
       {showInfographic && (
         <div style={{
