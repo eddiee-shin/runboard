@@ -180,63 +180,37 @@ export default function InfographicReport({ data }: InfographicProps) {
           </div>
         </div>
 
-        {/* Bento Grid: DOW + Quality */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', marginBottom: '20px' }}>
-          <div style={{ background: '#FFF', borderRadius: '24px', padding: '20px', border: '1px solid #EEE' }}>
-            <div style={{ fontSize: '10px', color: '#999', marginBottom: '15px', fontWeight: 800, textTransform: 'uppercase' }}>ACTIVITY BY DAY</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '45px' }}>
-              {(data.dowData || [0,0,0,0,0,0,0]).map((v, i) => {
-                const labels = ['M','T','W','T','F','S','S']
-                const maxDow = Math.max(...(data.dowData || [1]), 1)
-                return (
-                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '8px', background: v > 0 ? '#0D2B1D' : '#F5F5F0', height: `${(v / maxDow) * 100}%`, borderRadius: '4px' }} />
-                    <span style={{ fontSize: '8px', color: '#BBB', fontWeight: 800 }}>{labels[i]}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          <div style={{ background: '#FFF', borderRadius: '24px', padding: '20px', border: '1px solid #EEE' }}>
-            <div style={{ fontSize: '10px', color: '#999', marginBottom: '10px', fontWeight: 800, textTransform: 'uppercase' }}>QUALITY</div>
-            <div style={{ position: 'relative', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: '16px', fontWeight: 900 }}>
-                {data.totalRuns > 0 ? Math.round(((data.quality?.good || 0) / data.totalRuns) * 100) : 0}%
-              </div>
-              <svg style={{ position: 'absolute', width: '50px', height: '50px', transform: 'rotate(-90deg)' }}>
-                <circle cx="25" cy="25" r="22" fill="none" stroke="#F5F5F0" strokeWidth="4" />
-                <circle cx="25" cy="25" r="22" fill="none" stroke="#5E8B61" strokeWidth="4" 
-                  strokeDasharray={`${(data.totalRuns > 0 ? (data.quality?.good || 0) / data.totalRuns : 0) * 138} 138`} />
-              </svg>
-            </div>
-          </div>
-        </div>
-
         {/* Milestones / Achievement Badges */}
-        <div style={{ marginBottom: '25px' }}>
-          <h3 style={{ fontSize: '10px', fontWeight: 800, color: '#999', marginBottom: '15px', textTransform: 'uppercase', textAlign: 'center', letterSpacing: '1px' }}>
+        <div style={{ 
+          background: '#FFF', 
+          borderRadius: '24px', 
+          padding: '25px', 
+          marginBottom: '20px',
+          border: '1px solid #EEE',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ fontSize: '10px', fontWeight: 800, color: '#999', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '1px' }}>
             MONTHLY MILESTONES
           </h3>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '30px' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#F0F7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #5E8B61' }}>
-                <Medal size={20} color="#5E8B61" />
+              <div style={{ width: '55px', height: '55px', borderRadius: '50%', background: '#F0F7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', border: '2px solid #5E8B61' }}>
+                <Medal size={28} color="#5E8B61" />
               </div>
-              <div style={{ fontSize: '8px', fontWeight: 800 }}>{data.maxStreak || 0} DAY STREAK</div>
+              <div style={{ fontSize: '10px', fontWeight: 800 }}>{data.maxStreak || 0} DAY STREAK</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#FFF8E1', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #FFC107' }}>
-                <Trophy size={20} color="#FFC107" />
+              <div style={{ width: '55px', height: '55px', borderRadius: '50%', background: '#FFF8E1', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', border: '2px solid #FFC107' }}>
+                <Trophy size={28} color="#FFC107" />
               </div>
-              <div style={{ fontSize: '8px', fontWeight: 800 }}>BEST {data.bestRun?.distance.toFixed(0)}K</div>
+              <div style={{ fontSize: '10px', fontWeight: 800 }}>BEST {data.bestRun?.distance.toFixed(0)}K</div>
             </div>
             {hasGreatPace && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#FBE9E7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #FF5722' }}>
-                  <Flame size={20} color="#FF5722" />
+                <div style={{ width: '55px', height: '55px', borderRadius: '50%', background: '#FBE9E7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', border: '2px solid #FF5722' }}>
+                  <Flame size={28} color="#FF5722" />
                 </div>
-                <div style={{ fontSize: '8px', fontWeight: 800 }}>SPEEDSTER</div>
+                <div style={{ fontSize: '10px', fontWeight: 800 }}>SPEEDSTER</div>
               </div>
             )}
           </div>
