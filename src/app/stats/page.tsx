@@ -203,8 +203,15 @@ export default function StatsPage() {
       .order('created_at', { ascending: false })
       .limit(5)
 
-    if (recent) {
-      setRecentRuns(recent)
+    // 4. Fetch All Verified Runs for Calendar
+    const { data: allRuns } = await supabase
+      .from('run_sessions')
+      .select('activity_date')
+      .eq('profile_id', user.id)
+      .eq('status', 'verified')
+    
+    if (allRuns) {
+      setAllVerifiedRuns(allRuns)
     }
 
     setIsLoading(false)
