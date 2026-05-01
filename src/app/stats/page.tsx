@@ -211,6 +211,7 @@ export default function StatsPage() {
   }
 
   const prepareReportData = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setIsLoading(true)
     
