@@ -98,55 +98,32 @@ export default function StatsPage() {
       .eq('status', 'verified')
 
     if (filter === 'Today') {
-      query = query.eq('activity_date', getLocalISODate(now))
+      const todayStr = getLocalISODate(now)
+      query = query.eq('activity_date', todayStr)
     } else if (filter === 'Weekly') {
-      const day = now.getDay()
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-      const startOfWeek = new Date(now.setDate(diff))
-      startOfWeek.setHours(0,0,0,0)
-      query = query.gte('activity_date', getLocalISODate(startOfWeek))
+      const startOfWeek = new Date(now)
+      startOfWeek.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1))
+      query = query.gte('activity_date', getLocalISODate(startOfWeek)).lte('activity_date', getLocalISODate(now))
     } else if (filter === 'Monthly') {
       const startOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
       const endOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
-      query = query.gte('activity_date', getLocalISODate(startOfMonth))
-                   .lte('activity_date', getLocalISODate(endOfMonth))
+      query = query.gte('activity_date', getLocalISODate(startOfMonth)).lte('activity_date', getLocalISODate(endOfMonth))
     }
 
-    const { data: runs, error } = await query
+    const { data: runs } = await query
 
-    if (error || !runs) {
-      console.error('Error fetching stats', error)
-      setIsLoading(false)
-      return
-    }
+    let fDist = 0, fRuns = 0, fDur = 0, totPaceSec = 0, paceCount = 0, totHr = 0, hrCount = 0
+    const daysMap = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 0:0 }
 
-    let fDist = 0
-    let fRuns = 0
-    let fDur = 0
-    let totPaceSec = 0
-    let paceCount = 0
-    let totHr = 0
-    let hrCount = 0
-
-    const daysMap = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 } // Sunday is 0
-    
-    runs.forEach((r: any) => {
+    runs?.forEach((r: any) => {
       const dist = parseFloat(r.distance_km || 0)
       fDist += dist
       fRuns++
       fDur += parseInt(r.duration_sec || 0)
-      
-      const pace = parseInt(r.pace_sec_per_km || 0)
-      if (pace > 0) {
-        totPaceSec += pace
-        paceCount++
-      }
-
+      const p = parseInt(r.pace_sec_per_km || 0)
+      if (p > 0) { totPaceSec += p; paceCount++ }
       const hr = parseInt(r.avg_heart_rate || 0)
-      if (hr > 0) {
-        totHr += hr
-        hrCount++
-      }
+      if (hr > 0) { totHr += hr; hrCount++ }
 
       const runDate = new Date(r.activity_date)
       daysMap[runDate.getDay() as keyof typeof daysMap] += dist
@@ -170,7 +147,7 @@ export default function StatsPage() {
         monthLabels.push(getMonthLabel(d))
       }
 
-      runs.forEach((r: any) => {
+      runs?.forEach((r: any) => {
         const rDate = new Date(r.activity_date)
         const key = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`
         if (monthlyMap[key] !== undefined) {
@@ -202,6 +179,10 @@ export default function StatsPage() {
       .order('activity_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(5)
+
+    if (recent) {
+      setRecentRuns(recent)
+    }
 
     // 4. Fetch All Verified Runs for Calendar
     const { data: allRuns } = await supabase
@@ -298,8 +279,6 @@ export default function StatsPage() {
     setIsLoading(false)
     setShowInfographic(true)
   }
-
-
 
   const handleDownload = async () => {
     if (!reportRef.current) return
@@ -414,10 +393,9 @@ export default function StatsPage() {
             </div>
           )}
           
-            {(filter === 'Weekly' || filter === 'Monthly') && (
-              <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <h2 className="section-title" style={{ marginBottom: 0, fontSize: '1.2rem' }}>Goal Progress</h2>
-              
+          {(filter === 'Weekly' || filter === 'Monthly') && (
+            <div className="chart-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h2 className="section-title" style={{ marginBottom: 0, fontSize: '1.2rem' }}>Goal Progress</h2>
               <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                   <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{filter} {currentGoal}km Goal</span>
@@ -476,27 +454,27 @@ export default function StatsPage() {
                       {reportData ? 'View Report' : 'Generate Report'}
                     </button>
                   </div>
+
                   <div className="calendar-grid" style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(7, 1fr)',
-                    gap: '8px',
+                    gap: '10px',
                     background: 'var(--surface-color)',
-                    padding: '16px',
-                    borderRadius: '16px'
+                    padding: '20px',
+                    borderRadius: '24px'
                   }}>
-                    {['S','M','T','W','T','F','S'].map((d, i) => (
-                      <div key={i} style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>{d}</div>
+                    {['M','T','W','T','F','S','S'].map(d => (
+                      <div key={d} style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700 }}>{d}</div>
                     ))}
                     {(() => {
+                      const days = []
                       const start = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
                       const end = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
-                      const days = []
+                      let startDay = start.getDay() === 0 ? 6 : start.getDay() - 1
+                      
+                      for (let i = 0; i < startDay; i++) days.push(<div key={`empty-${i}`} />)
+                      
                       const now = new Date()
-                      
-                      for (let i = 0; i < start.getDay(); i++) {
-                        days.push(<div key={`pad-${i}`} />)
-                      }
-                      
                       for (let d = 1; d <= end.getDate(); d++) {
                         const dateStr = `${viewingDate.getFullYear()}-${String(viewingDate.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
                         const hasRun = allVerifiedRuns.some(r => r.activity_date === dateStr)
@@ -526,48 +504,14 @@ export default function StatsPage() {
               )}
             </div>
           )}
-
-
-
+        </>
       )}
 
-      {/* Infographic Overlay */}
-      {showInfographic && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.9)',
-          zIndex: 1000,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          overflowY: 'auto'
-        }}>
-          <div style={{ width: '100%', maxWidth: '400px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
-            <button 
-              onClick={() => setShowInfographic(false)}
-              style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', fontSize: '1rem' }}
-            >
-              Close
-            </button>
-            <button 
-              onClick={handleDownload}
-              style={{ background: 'var(--volt)', border: 'none', color: '#000', padding: '8px 20px', borderRadius: '20px', fontWeight: 700, cursor: 'pointer' }}
-            >
-              Save as Image
-            </button>
-          </div>
-          <div ref={reportRef}>
-            {reportData && <InfographicReport key={reportData.month + reportData.totalRuns} data={reportData} />}
-          </div>
-        </div>
-      )}
+      {/* Recent Uploads List - Always visible */}
       <div className="chart-section" style={{ marginTop: '32px', marginBottom: '40px' }}>
         <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Recent Uploads</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {recentRuns.length === 0 && (
+          {recentRuns.length === 0 && !isLoading && (
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No recent runs.</div>
           )}
           {recentRuns.map(run => (
@@ -602,6 +546,40 @@ export default function StatsPage() {
           ))}
         </div>
       </div>
+
+      {/* Infographic Overlay */}
+      {showInfographic && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.9)',
+          zIndex: 1000,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          overflowY: 'auto'
+        }}>
+          <div style={{ width: '100%', maxWidth: '400px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
+            <button 
+              onClick={() => setShowInfographic(false)}
+              style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', fontSize: '1rem' }}
+            >
+              Close
+            </button>
+            <button 
+              onClick={handleDownload}
+              style={{ background: 'var(--volt)', border: 'none', color: '#000', padding: '8px 20px', borderRadius: '20px', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Save as Image
+            </button>
+          </div>
+          <div ref={reportRef}>
+            {reportData && <InfographicReport key={reportData.month + reportData.totalRuns} data={reportData} />}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
