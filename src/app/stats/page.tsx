@@ -46,10 +46,11 @@ export default function StatsPage() {
   // Goals
   const [weeklyGoal, setWeeklyGoal] = useState(40) // Default 40
   const [monthlyGoal, setMonthlyGoal] = useState(150) // Default 150
+  const [viewingDate, setViewingDate] = useState(new Date())
 
   useEffect(() => {
     fetchStats()
-  }, [filter])
+  }, [filter, viewingDate])
 
   const getMonthLabel = (date: Date) => {
     return date.toLocaleString('default', { month: 'short' })
@@ -84,6 +85,7 @@ export default function StatsPage() {
 
     // 2. Date Logic
     const now = new Date()
+    const targetDate = filter === 'Monthly' ? viewingDate : now
     const getLocalISODate = (d: Date) => {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
@@ -103,8 +105,10 @@ export default function StatsPage() {
       startOfWeek.setHours(0,0,0,0)
       query = query.gte('activity_date', getLocalISODate(startOfWeek))
     } else if (filter === 'Monthly') {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const startOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
+      const endOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
       query = query.gte('activity_date', getLocalISODate(startOfMonth))
+                   .lte('activity_date', getLocalISODate(endOfMonth))
     }
 
     const { data: runs, error } = await query
@@ -212,9 +216,9 @@ export default function StatsPage() {
     if (allRuns) {
       setAllVerifiedRuns(allRuns)
       
-      // Prepare infographic data for current month
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      // Prepare infographic data for viewing month
+      const startOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
+      const endOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
       const daysInMonth = endOfMonth.getDate()
       
       const dailyMap: Record<number, number> = {}
@@ -229,8 +233,7 @@ export default function StatsPage() {
       let mHrCount = 0
       let bestR: any = null
 
-      const currentMonthRuns = runs.filter((r: any) => filter === 'Monthly') // if already monthly, use runs
-      // But we want ALL runs of this month regardless of filter for the report
+      // Fetch runs for the viewing month specifically for the report
       const { data: thisMonthRuns } = await supabase
         .from('run_sessions')
         .select('*')
@@ -256,7 +259,7 @@ export default function StatsPage() {
       }
 
       setReportData({
-        month: now.toLocaleString('default', { month: 'long', year: 'numeric' }),
+        month: viewingDate.toLocaleString('default', { month: 'long', year: 'numeric' }),
         totalDistance: mDist,
         totalRuns: mRuns,
         totalDurationSec: mDur,
@@ -400,6 +403,33 @@ export default function StatsPage() {
 
               {filter === 'Monthly' && (
                 <div className="chart-section" style={{ marginTop: '16px' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '15px', 
+                    marginBottom: '20px',
+                    background: 'var(--surface-color)',
+                    padding: '10px',
+                    borderRadius: '30px'
+                  }}>
+                    <button 
+                      onClick={() => setViewingDate(new Date(viewingDate.getFullYear(), viewingDate.getMonth() - 1, 1))}
+                      style={{ background: 'none', border: 'none', color: 'var(--volt)', cursor: 'pointer', fontSize: '1.2rem' }}
+                    >
+                      &larr;
+                    </button>
+                    <div style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontSize: '1.2rem', textTransform: 'uppercase' }}>
+                      {viewingDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </div>
+                    <button 
+                      onClick={() => setViewingDate(new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 1))}
+                      style={{ background: 'none', border: 'none', color: 'var(--volt)', cursor: 'pointer', fontSize: '1.2rem' }}
+                    >
+                      &rarr;
+                    </button>
+                  </div>
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h2 className="section-title" style={{ fontSize: '1.2rem', marginBottom: 0 }}>Monthly Calendar</h2>
                     <button 
@@ -430,19 +460,19 @@ export default function StatsPage() {
                       <div key={i} style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>{d}</div>
                     ))}
                     {(() => {
-                      const now = new Date()
-                      const start = new Date(now.getFullYear(), now.getMonth(), 1)
-                      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+                      const start = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
+                      const end = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
                       const days = []
+                      const now = new Date()
                       
                       for (let i = 0; i < start.getDay(); i++) {
                         days.push(<div key={`pad-${i}`} />)
                       }
                       
                       for (let d = 1; d <= end.getDate(); d++) {
-                        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+                        const dateStr = `${viewingDate.getFullYear()}-${String(viewingDate.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
                         const hasRun = allVerifiedRuns.some(r => r.activity_date === dateStr)
-                        const isToday = d === now.getDate()
+                        const isToday = d === now.getDate() && viewingDate.getMonth() === now.getMonth() && viewingDate.getFullYear() === now.getFullYear()
                         
                         days.push(
                           <div key={d} style={{
