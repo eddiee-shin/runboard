@@ -13,6 +13,7 @@ interface InfographicProps {
     displayName: string
     dowData?: number[]
     quality?: { good: number; normal: number }
+    maxStreak?: number
   }
 }
 
@@ -105,40 +106,40 @@ export default function InfographicReport({ data }: InfographicProps) {
           boxShadow: '0 15px 35px rgba(13, 43, 29, 0.2)'
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 800, letterSpacing: '0.5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 800 }}>
               <Footprints size={12} /> Runs
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 900 }}>{data.totalRuns}<span style={{ fontSize: '14px', fontWeight: 400, marginLeft: '2px' }}>회</span></div>
+            <div style={{ fontSize: '24px', fontWeight: 900 }}>{data.totalRuns}<span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '2px' }}>회</span></div>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 800, letterSpacing: '0.5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 800 }}>
               <Target size={12} /> Dist
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 900 }}>{data.totalDistance.toFixed(1)}<span style={{ fontSize: '14px', fontWeight: 400, marginLeft: '2px' }}>km</span></div>
+            <div style={{ fontSize: '24px', fontWeight: 900 }}>{data.totalDistance.toFixed(1)}<span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '2px' }}>km</span></div>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 800, letterSpacing: '0.5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 800 }}>
               <Zap size={12} /> Time
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 900 }}>{formatDuration(data.totalDurationSec)}<span style={{ fontSize: '14px', fontWeight: 400, marginLeft: '2px' }}>h</span></div>
+            <div style={{ fontSize: '24px', fontWeight: 900 }}>{formatDuration(data.totalDurationSec)}<span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '2px' }}>h</span></div>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 800, letterSpacing: '0.5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 800 }}>
               <Zap size={12} /> Pace
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 900 }}>{formatPace(data.avgPace)}</div>
+            <div style={{ fontSize: '24px', fontWeight: 900 }}>{formatPace(data.avgPace)}</div>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 800, letterSpacing: '0.5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 800 }}>
               <Heart size={12} /> HR
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 900 }}>{data.avgHeartRate > 0 ? data.avgHeartRate : '--'}<span style={{ fontSize: '14px', fontWeight: 400, marginLeft: '2px' }}>bpm</span></div>
+            <div style={{ fontSize: '24px', fontWeight: 900 }}>{data.avgHeartRate > 0 ? data.avgHeartRate : '--'}<span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '2px' }}>bpm</span></div>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 800, letterSpacing: '0.5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 800 }}>
               <Flame size={12} /> Cal
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 900 }}>{Math.round(calories/100)*100}<span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '2px' }}>kcal</span></div>
+            <div style={{ fontSize: '24px', fontWeight: 900 }}>{Math.round(calories/100)*100}<span style={{ fontSize: '12px', fontWeight: 400, marginLeft: '2px' }}>kcal</span></div>
           </div>
         </div>
 
@@ -208,19 +209,17 @@ export default function InfographicReport({ data }: InfographicProps) {
         </div>
 
         {/* Milestones / Achievement Badges */}
-        <div style={{ marginBottom: '30px' }}>
+        <div style={{ marginBottom: '25px' }}>
           <h3 style={{ fontSize: '10px', fontWeight: 800, color: '#999', marginBottom: '15px', textTransform: 'uppercase', textAlign: 'center', letterSpacing: '1px' }}>
             MONTHLY MILESTONES
           </h3>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
-            {hasConsistency && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#F0F7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #5E8B61' }}>
-                  <Medal size={20} color="#5E8B61" />
-                </div>
-                <div style={{ fontSize: '8px', fontWeight: 800 }}>CONSISTENT</div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#F0F7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #5E8B61' }}>
+                <Medal size={20} color="#5E8B61" />
               </div>
-            )}
+              <div style={{ fontSize: '8px', fontWeight: 800 }}>{data.maxStreak || 0} DAY STREAK</div>
+            </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#FFF8E1', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #FFC107' }}>
                 <Trophy size={20} color="#FFC107" />
