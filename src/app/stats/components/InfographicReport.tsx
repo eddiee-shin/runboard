@@ -18,15 +18,10 @@ interface InfographicProps {
 }
 
 export default function InfographicReport({ data }: InfographicProps) {
-  // Use data with fallbacks to ensure display even if partially missing
-  const dow = data.dowData || [0,0,0,0,0,0,0]
-  const quality = data.quality || { good: 0, normal: 0 }
-  const total = data.totalRuns || 1
-
   const formatDuration = (sec: number) => {
     const h = Math.floor(sec / 3600)
     const m = Math.floor((sec % 3600) / 60)
-    return h > 0 ? `${h}.${Math.floor(m/6)}` : `${m}`
+    return h > 0 ? `${h}.${Math.round(m/6)}` : `0.${Math.round(m/6)}`
   }
 
   const formatPace = (sec: number) => {
@@ -39,9 +34,7 @@ export default function InfographicReport({ data }: InfographicProps) {
   const calories = Math.round(data.totalDistance * 65)
   
   // Calculate streaks or milestones
-  const hasConsistency = data.totalRuns >= 12
-  const hasLongRun = (data.bestRun?.distance || 0) >= 15
-  const hasGreatPace = data.avgPace < 360 // < 6:00
+  const hasGreatPace = data.avgPace > 0 && data.avgPace <= 330 // Under 5:30 min/km
 
   return (
     <div id="infographic-report" style={{
@@ -182,9 +175,9 @@ export default function InfographicReport({ data }: InfographicProps) {
           <div style={{ background: '#FFF', borderRadius: '24px', padding: '20px', border: '1px solid #EEE' }}>
             <div style={{ fontSize: '10px', color: '#999', marginBottom: '15px', fontWeight: 800, textTransform: 'uppercase' }}>ACTIVITY BY DAY</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '45px' }}>
-              {dow.map((v, i) => {
+              {(data.dowData || [0,0,0,0,0,0,0]).map((v, i) => {
                 const labels = ['M','T','W','T','F','S','S']
-                const maxDow = Math.max(...dow, 1)
+                const maxDow = Math.max(...(data.dowData || [1]), 1)
                 return (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                     <div style={{ width: '8px', background: v > 0 ? '#0D2B1D' : '#F5F5F0', height: `${(v / maxDow) * 100}%`, borderRadius: '4px' }} />
@@ -198,11 +191,13 @@ export default function InfographicReport({ data }: InfographicProps) {
           <div style={{ background: '#FFF', borderRadius: '24px', padding: '20px', border: '1px solid #EEE' }}>
             <div style={{ fontSize: '10px', color: '#999', marginBottom: '10px', fontWeight: 800, textTransform: 'uppercase' }}>QUALITY</div>
             <div style={{ position: 'relative', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: '16px', fontWeight: 900 }}>{Math.round((quality.good / total) * 100)}%</div>
+              <div style={{ fontSize: '16px', fontWeight: 900 }}>
+                {data.totalRuns > 0 ? Math.round(((data.quality?.good || 0) / data.totalRuns) * 100) : 0}%
+              </div>
               <svg style={{ position: 'absolute', width: '50px', height: '50px', transform: 'rotate(-90deg)' }}>
                 <circle cx="25" cy="25" r="22" fill="none" stroke="#F5F5F0" strokeWidth="4" />
                 <circle cx="25" cy="25" r="22" fill="none" stroke="#5E8B61" strokeWidth="4" 
-                  strokeDasharray={`${(quality.good / total) * 138} 138`} />
+                  strokeDasharray={`${(data.totalRuns > 0 ? (data.quality?.good || 0) / data.totalRuns : 0) * 138} 138`} />
               </svg>
             </div>
           </div>
