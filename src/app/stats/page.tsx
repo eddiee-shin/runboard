@@ -248,7 +248,10 @@ export default function StatsPage() {
 
       if (thisMonthRuns) {
         thisMonthRuns.forEach((r: any) => {
-          const runD = new Date(r.activity_date)
+          // Robust date parsing without timezone shifts
+          const [year, month, day] = r.activity_date.split('-').map(Number)
+          const runD = new Date(year, month - 1, day)
+          
           const d = runD.getDate()
           const dow = runD.getDay()
           dowMap[dow]++
@@ -264,9 +267,8 @@ export default function StatsPage() {
           if (hr > 0) { mHrTot += hr; mHrCount++ }
           if (!bestR || dist > parseFloat(bestR.distance_km)) bestR = r
 
-          // Simple quality logic: if hr is low and pace is decent, it's 'Good'
-          // Let's say if pace < 400 (6:40) and hr < 150, or just based on pace
-          if (p > 0 && p < 360) qualityGood++
+          // Quality logic: use 6:00 (360s) as benchmark for 'Good'
+          if (p > 0 && p <= 360) qualityGood++
           else qualityNormal++
         })
       }
