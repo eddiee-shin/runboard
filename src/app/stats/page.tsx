@@ -83,12 +83,13 @@ export default function StatsPage() {
       })
     }
 
-    // 2. Date Logic
-    const now = new Date()
-    const targetDate = filter === 'Monthly' ? viewingDate : now
+    // 2. Date Helpers
     const getLocalISODate = (d: Date) => {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
+
+    const now = new Date()
+    const targetDate = filter === 'Monthly' ? viewingDate : now
     
     let query = supabase
       .from('run_sessions')
@@ -206,7 +207,71 @@ export default function StatsPage() {
       setRecentRuns(recent)
     }
 
-    // 4. Fetch All Verified Runs (for calendar)
+    // 4. Prepare infographic data for viewing month (Always do this independently)
+    const startOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
+    const endOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
+    const daysInMonth = endOfMonth.getDate()
+    
+    const dailyMap: Record<number, number> = {}
+    for (let i = 1; i <= daysInMonth; i++) dailyMap[i] = 0
+    
+    const { data: thisMonthRuns } = await supabase
+      .from('run_sessions')
+      .select('*')
+      .eq('profile_id', user.id)
+      .eq('status', 'verified')
+      .gte('activity_date', getLocalISODate(startOfMonth))
+      .lte('activity_date', getLocalISODate(endOfMonth))
+
+    let mDist = 0, mRuns = 0, mDur = 0, mPaceTot = 0, mPaceCount = 0, mHrTot = 0, mHrCount = 0
+    let bestR: any = null
+    const dowMap: Record<number, number> = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 }
+    let qualityGood = 0, qualityNormal = 0
+
+    if (thisMonthRuns) {
+      thisMonthRuns.forEach((r: any) => {
+        const [year, month, day] = r.activity_date.split('-').map(Number)
+        const runD = new Date(year, month - 1, day)
+        const d = runD.getDate()
+        const dow = runD.getDay()
+        
+        dowMap[dow]++
+        const dist = parseFloat(r.distance_km || 0)
+        dailyMap[d] += dist
+        mDist += dist
+        mRuns++
+        mDur += parseInt(r.duration_sec || 0)
+        const p = parseInt(r.pace_sec_per_km || 0)
+        if (p > 0) { mPaceTot += p; mPaceCount++ }
+        const hr = parseInt(r.avg_heart_rate || 0)
+        if (hr > 0) { mHrTot += hr; mHrCount++ }
+        if (!bestR || dist > parseFloat(bestR.distance_km)) bestR = r
+        if (p > 0 && p <= 360) qualityGood++
+        else qualityNormal++
+      })
+    }
+
+    let maxStrk = 0, currStrk = 0
+    for (let i = 1; i <= daysInMonth; i++) {
+      if (dailyMap[i] > 0) { currStrk++; if (currStrk > maxStrk) maxStrk = currStrk }
+      else currStrk = 0
+    }
+
+    setReportData({
+      month: viewingDate.toLocaleString('default', { month: 'long', year: 'numeric' }),
+      totalDistance: mDist,
+      totalRuns: mRuns,
+      totalDurationSec: mDur,
+      avgPace: mPaceCount > 0 ? mPaceTot / mPaceCount : 0,
+      avgHeartRate: mHrCount > 0 ? Math.round(mHrTot / mHrCount) : 0,
+      dailyDistances: Object.entries(dailyMap).map(([day, distance]) => ({ day: parseInt(day), distance })),
+      bestRun: bestR ? { distance: parseFloat(bestR.distance_km), date: bestR.activity_date } : null,
+      displayName: profile?.display_name || 'Runner',
+      dowData: [dowMap[1], dowMap[2], dowMap[3], dowMap[4], dowMap[5], dowMap[6], dowMap[0]], 
+      quality: { good: qualityGood, normal: qualityNormal },
+      maxStreak: maxStrk
+    })
+
     const { data: allRuns } = await supabase
       .from('run_sessions')
       .select('activity_date')
@@ -215,77 +280,6 @@ export default function StatsPage() {
     
     if (allRuns) {
       setAllVerifiedRuns(allRuns)
-      
-      // Prepare infographic data for viewing month
-      const startOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
-      const endOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
-      const daysInMonth = endOfMonth.getDate()
-      
-      const dailyMap: Record<number, number> = {}
-      for (let i = 1; i <= daysInMonth; i++) dailyMap[i] = 0
-      
-      let mDist = 0
-      let mRuns = 0
-      let mDur = 0
-      let mPaceTot = 0
-      let mPaceCount = 0
-      let mHrTot = 0
-      let mHrCount = 0
-      let bestR: any = null
-
-      // Fetch runs for the viewing month specifically for the report
-      const { data: thisMonthRuns } = await supabase
-        .from('run_sessions')
-        .select('*')
-        .eq('profile_id', user.id)
-        .eq('status', 'verified')
-        .gte('activity_date', getLocalISODate(startOfMonth))
-        .lte('activity_date', getLocalISODate(endOfMonth))
-
-      const dowMap: Record<number, number> = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 }
-      let qualityGood = 0
-      let qualityNormal = 0
-
-      if (thisMonthRuns) {
-        thisMonthRuns.forEach((r: any) => {
-          // Robust date parsing without timezone shifts
-          const [year, month, day] = r.activity_date.split('-').map(Number)
-          const runD = new Date(year, month - 1, day)
-          
-          const d = runD.getDate()
-          const dow = runD.getDay()
-          dowMap[dow]++
-
-          const dist = parseFloat(r.distance_km || 0)
-          dailyMap[d] += dist
-          mDist += dist
-          mRuns++
-          mDur += parseInt(r.duration_sec || 0)
-          const p = parseInt(r.pace_sec_per_km || 0)
-          if (p > 0) { mPaceTot += p; mPaceCount++ }
-          const hr = parseInt(r.avg_heart_rate || 0)
-          if (hr > 0) { mHrTot += hr; mHrCount++ }
-          if (!bestR || dist > parseFloat(bestR.distance_km)) bestR = r
-
-          // Quality logic: use 6:00 (360s) as benchmark for 'Good'
-          if (p > 0 && p <= 360) qualityGood++
-          else qualityNormal++
-        })
-      }
-
-      setReportData({
-        month: viewingDate.toLocaleString('default', { month: 'long', year: 'numeric' }),
-        totalDistance: mDist,
-        totalRuns: mRuns,
-        totalDurationSec: mDur,
-        avgPace: mPaceCount > 0 ? mPaceTot / mPaceCount : 0,
-        avgHeartRate: mHrCount > 0 ? Math.round(mHrTot / mHrCount) : 0,
-        dailyDistances: Object.entries(dailyMap).map(([day, distance]) => ({ day: parseInt(day), distance })),
-        bestRun: bestR ? { distance: parseFloat(bestR.distance_km), date: bestR.activity_date } : null,
-        displayName: profile?.display_name || 'Runner',
-        dowData: [dowMap[1], dowMap[2], dowMap[3], dowMap[4], dowMap[5], dowMap[6], dowMap[0]], // M-S
-        quality: { good: qualityGood, normal: qualityNormal }
-      })
     }
 
     setIsLoading(false)
