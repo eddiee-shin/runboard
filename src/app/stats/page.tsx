@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import html2canvas from 'html2canvas'
 import InfographicReport from './components/InfographicReport'
-import InstallPWA from '@/components/InstallPWA'
 
 // Helper: Format seconds per km to M'SS"
 const formatPace = (sec: number) => {
@@ -320,7 +319,6 @@ export default function StatsPage() {
 
   return (
     <div className="content active">
-      <InstallPWA />
       <div className="filter-chips">
         {['Today', 'Weekly', 'Monthly', 'All Time'].map(f => (
           <div 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
+import InstallPWA from '@/components/InstallPWA'
 
 export default function ProfilePage() {
   const supabase = createClient()
@@ -349,6 +350,10 @@ export default function ProfilePage() {
               {message}
             </div>
           )}
+
+          <div style={{ marginTop: '30px', marginBottom: '20px' }}>
+            <InstallPWA />
+          </div>
 
           <button 
             className="action-btn" 
