@@ -277,7 +277,10 @@ export default function StatsPage() {
       totalDurationSec: mDur,
       avgPace: mPaceCount > 0 ? mPaceTot / mPaceCount : 0,
       avgHeartRate: mHrCount > 0 ? Math.round(mHrTot / mHrCount) : 0,
-      dailyDistances: Object.entries(dailyMap).map(([day, distance]) => ({ day: parseInt(day), distance })),
+      dailyDistances: Object.keys(dailyMap).sort((a,b) => parseInt(a) - parseInt(b)).map(d => ({ 
+        day: parseInt(d), 
+        distance: dailyMap[parseInt(d)] 
+      })),
       bestRun: bestR ? { distance: parseFloat(bestR.distance_km), date: bestR.activity_date } : null,
       displayName: profile?.display_name || 'Runner',
       dowData: [dowMap[1], dowMap[2], dowMap[3], dowMap[4], dowMap[5], dowMap[6], dowMap[0]], 
@@ -288,6 +291,7 @@ export default function StatsPage() {
     setIsLoading(false)
     setShowInfographic(true)
   }
+
 
 
   const handleDownload = async () => {
@@ -587,7 +591,7 @@ export default function StatsPage() {
             </button>
           </div>
           <div ref={reportRef}>
-            {reportData && <InfographicReport data={reportData} />}
+            {reportData && <InfographicReport key={reportData.month + reportData.totalRuns} data={reportData} />}
           </div>
         </div>
       )}
