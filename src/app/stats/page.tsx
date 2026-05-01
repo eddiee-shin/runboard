@@ -233,6 +233,15 @@ export default function StatsPage() {
       let mHrCount = 0
       let bestR: any = null
 
+      // Fetch runs for the viewing month specifically for the report
+      const { data: thisMonthRuns } = await supabase
+        .from('run_sessions')
+        .select('*')
+        .eq('profile_id', user.id)
+        .eq('status', 'verified')
+        .gte('activity_date', getLocalISODate(startOfMonth))
+        .lte('activity_date', getLocalISODate(endOfMonth))
+
       const dowMap: Record<number, number> = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 }
       let qualityGood = 0
       let qualityNormal = 0
