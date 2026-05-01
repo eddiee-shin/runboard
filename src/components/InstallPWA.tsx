@@ -16,31 +16,34 @@ export default function InstallPWA() {
       return
     }
 
-    // Detect iOS
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
-    setIsIOS(ios)
+    // Detect iOS - more robust check
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    setIsIOS(isIOSDevice)
 
     // Android: Listen for beforeinstallprompt
-    window.addEventListener('beforeinstallprompt', (e) => {
+    const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault()
       setDeferredPrompt(e)
-    })
+    }
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
   }, [])
 
   const handleInstallClick = async () => {
-    if (isIOS) {
-      setShowPopup(true)
-    } else if (deferredPrompt) {
+    if (deferredPrompt) {
       deferredPrompt.prompt()
       const { outcome } = await deferredPrompt.userChoice
       if (outcome === 'accepted') {
         setDeferredPrompt(null)
       }
     } else {
-      // General guide for other browsers
+      // For iOS or cases where deferredPrompt isn't available, always show guide popup
       setShowPopup(true)
     }
   }
+
 
   if (isStandalone) return null
 
