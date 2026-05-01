@@ -529,46 +529,8 @@ export default function StatsPage() {
 
 
 
-          <div className="chart-section" style={{ marginTop: '32px' }}>
-            <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Recent Uploads</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {recentRuns.length === 0 && (
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No recent runs.</div>
-              )}
-              {recentRuns.map(run => (
-                <div key={run.id} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  background: 'var(--surface-color)', padding: '16px', borderRadius: '12px'
-                }}>
-                  <div>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '4px' }}>
-                      {new Date(run.activity_date).toLocaleDateString()}
-                    </div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-barlow-condensed)' }}>
-                      {parseFloat(run.distance_km).toFixed(1)} km
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => handleDeleteRun(run.id)}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: '#ff4444', padding: '8px', borderRadius: '50%',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}
-                    title="Delete Run"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18"></path>
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
       )}
+
       {/* Infographic Overlay */}
       {showInfographic && (
         <div style={{
@@ -602,6 +564,44 @@ export default function StatsPage() {
           </div>
         </div>
       )}
+      <div className="chart-section" style={{ marginTop: '32px', marginBottom: '40px' }}>
+        <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Recent Uploads</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {recentRuns.length === 0 && (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No recent runs.</div>
+          )}
+          {recentRuns.map(run => (
+            <div key={run.id} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: 'var(--surface-color)', padding: '16px', borderRadius: '12px'
+            }}>
+              <div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '4px' }}>
+                  {new Date(run.activity_date).toLocaleDateString()}
+                </div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-barlow-condensed)' }}>
+                  {parseFloat(run.distance_km).toFixed(1)} km
+                </div>
+              </div>
+              <button 
+                onClick={() => handleDeleteRun(run.id)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#ff4444', padding: '8px', borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+                title="Delete Run"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18"></path>
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
