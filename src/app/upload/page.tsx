@@ -230,7 +230,7 @@ export default function UploadPage() {
         })
       }
 
-      router.push('/leaderboard')
+      router.push('/stats')
     } catch (err: any) {
       setError(`Database Error: ${err.message}`)
       setIsSaving(false)
