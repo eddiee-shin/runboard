@@ -17,6 +17,11 @@ interface InfographicProps {
 }
 
 export default function InfographicReport({ data }: InfographicProps) {
+  // Use data with fallbacks to ensure display even if partially missing
+  const dow = data.dowData || [0,0,0,0,0,0,0]
+  const quality = data.quality || { good: 0, normal: 0 }
+  const total = data.totalRuns || 1
+
   const formatDuration = (sec: number) => {
     const h = Math.floor(sec / 3600)
     const m = Math.floor((sec % 3600) / 60)
@@ -59,45 +64,45 @@ export default function InfographicReport({ data }: InfographicProps) {
       {/* Header Section with Gradient */}
       <header style={{ 
         background: 'linear-gradient(135deg, #222 0%, #333 100%)', 
-        padding: '45px 30px', 
-        marginBottom: '25px',
+        padding: '30px 25px', 
+        marginBottom: '20px',
         textAlign: 'left',
         position: 'relative',
         zIndex: 1,
         borderBottom: '4px solid var(--volt)'
       }}>
         <h1 style={{ 
-          fontSize: '30px', 
+          fontSize: '22px', 
           fontWeight: 900, 
           margin: 0, 
           color: 'var(--volt)',
           fontFamily: "'Barlow Condensed', sans-serif",
           fontStyle: 'italic',
           textTransform: 'uppercase',
-          lineHeight: '1',
-          letterSpacing: '-1px'
+          lineHeight: '1.1',
+          letterSpacing: '-0.5px'
         }}>
           {data.month} <br />
           RUNNING REPORT
         </h1>
-        <p style={{ fontSize: '12px', color: '#AAA', marginTop: '15px', fontWeight: 700, letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Zap size={14} color="var(--volt)" fill="var(--volt)" /> RUNBOARD CREW • {data.displayName}
+        <p style={{ fontSize: '11px', color: '#AAA', marginTop: '10px', fontWeight: 700, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Zap size={12} color="var(--volt)" fill="var(--volt)" /> RUNBOARD CREW • {data.displayName}
         </p>
       </header>
 
-      <div style={{ padding: '0 30px', position: 'relative', zIndex: 1 }}>
+      <div style={{ padding: '0 25px', position: 'relative', zIndex: 1 }}>
         {/* Main Stats Grid with Gradient */}
         <div style={{
           background: 'linear-gradient(135deg, #0D2B1D 0%, #1a4a35 100%)',
-          borderRadius: '32px',
-          padding: '30px',
+          borderRadius: '28px',
+          padding: '25px',
           color: '#FFF',
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
-          rowGap: '35px',
+          rowGap: '25px',
           columnGap: '15px',
-          marginBottom: '40px',
-          boxShadow: '0 20px 40px rgba(13, 43, 29, 0.25)'
+          marginBottom: '20px',
+          boxShadow: '0 15px 35px rgba(13, 43, 29, 0.2)'
         }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#88A096', textTransform: 'uppercase', marginBottom: '10px', fontWeight: 800, letterSpacing: '0.5px' }}>
@@ -140,14 +145,14 @@ export default function InfographicReport({ data }: InfographicProps) {
         {/* Daily Trend Chart */}
         <div style={{ 
           background: '#FFF', 
-          borderRadius: '28px', 
-          padding: '25px', 
-          marginBottom: '40px',
+          borderRadius: '24px', 
+          padding: '20px', 
+          marginBottom: '20px',
           border: '1px solid #EEE',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+          boxShadow: '0 4px 15px rgba(0,0,0,0.02)'
         }}>
-          <h3 style={{ fontSize: '12px', textAlign: 'left', marginBottom: '25px', fontWeight: 800, fontStyle: 'italic', textTransform: 'uppercase', color: '#111', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Zap size={14} color="#0D2B1D" /> DAILY DISTANCE TREND
+          <h3 style={{ fontSize: '11px', textAlign: 'left', marginBottom: '20px', fontWeight: 800, fontStyle: 'italic', textTransform: 'uppercase', color: '#111', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Zap size={12} color="#0D2B1D" /> DAILY TREND
           </h3>
           <div style={{ 
             height: '110px', 
@@ -172,16 +177,16 @@ export default function InfographicReport({ data }: InfographicProps) {
         </div>
 
         {/* Bento Grid: DOW + Quality */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px', marginBottom: '40px' }}>
-          <div style={{ background: '#FFF', borderRadius: '28px', padding: '25px', border: '1px solid #EEE' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', marginBottom: '20px' }}>
+          <div style={{ background: '#FFF', borderRadius: '24px', padding: '20px', border: '1px solid #EEE' }}>
             <div style={{ fontSize: '10px', color: '#999', marginBottom: '15px', fontWeight: 800, textTransform: 'uppercase' }}>ACTIVITY BY DAY</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '50px' }}>
-              {data.dowData?.map((v, i) => {
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '45px' }}>
+              {dow.map((v, i) => {
                 const labels = ['M','T','W','T','F','S','S']
-                const maxDow = Math.max(...(data.dowData || [1]), 1)
+                const maxDow = Math.max(...dow, 1)
                 return (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '10px', background: v > 0 ? '#0D2B1D' : '#F5F5F0', height: `${(v / maxDow) * 100}%`, borderRadius: '5px' }} />
+                    <div style={{ width: '8px', background: v > 0 ? '#0D2B1D' : '#F5F5F0', height: `${(v / maxDow) * 100}%`, borderRadius: '4px' }} />
                     <span style={{ fontSize: '8px', color: '#BBB', fontWeight: 800 }}>{labels[i]}</span>
                   </div>
                 )
@@ -189,45 +194,45 @@ export default function InfographicReport({ data }: InfographicProps) {
             </div>
           </div>
 
-          <div style={{ background: '#FFF', borderRadius: '28px', padding: '25px', border: '1px solid #EEE' }}>
-            <div style={{ fontSize: '10px', color: '#999', marginBottom: '12px', fontWeight: 800, textTransform: 'uppercase' }}>QUALITY</div>
-            <div style={{ position: 'relative', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: '18px', fontWeight: 900 }}>{Math.round((data.quality?.good || 0) / (data.totalRuns || 1) * 100)}%</div>
-              <svg style={{ position: 'absolute', width: '60px', height: '60px', transform: 'rotate(-90deg)' }}>
-                <circle cx="30" cy="30" r="25" fill="none" stroke="#F5F5F0" strokeWidth="5" />
-                <circle cx="30" cy="30" r="25" fill="none" stroke="#5E8B61" strokeWidth="5" 
-                  strokeDasharray={`${(data.quality?.good || 0) / (data.totalRuns || 1) * 157} 157`} />
+          <div style={{ background: '#FFF', borderRadius: '24px', padding: '20px', border: '1px solid #EEE' }}>
+            <div style={{ fontSize: '10px', color: '#999', marginBottom: '10px', fontWeight: 800, textTransform: 'uppercase' }}>QUALITY</div>
+            <div style={{ position: 'relative', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ fontSize: '16px', fontWeight: 900 }}>{Math.round((quality.good / total) * 100)}%</div>
+              <svg style={{ position: 'absolute', width: '50px', height: '50px', transform: 'rotate(-90deg)' }}>
+                <circle cx="25" cy="25" r="22" fill="none" stroke="#F5F5F0" strokeWidth="4" />
+                <circle cx="25" cy="25" r="22" fill="none" stroke="#5E8B61" strokeWidth="4" 
+                  strokeDasharray={`${(quality.good / total) * 138} 138`} />
               </svg>
             </div>
           </div>
         </div>
 
         {/* Milestones / Achievement Badges */}
-        <div style={{ marginBottom: '40px' }}>
-          <h3 style={{ fontSize: '12px', fontWeight: 800, color: '#999', marginBottom: '15px', textTransform: 'uppercase', textAlign: 'center', letterSpacing: '1px' }}>
+        <div style={{ marginBottom: '30px' }}>
+          <h3 style={{ fontSize: '10px', fontWeight: 800, color: '#999', marginBottom: '15px', textTransform: 'uppercase', textAlign: 'center', letterSpacing: '1px' }}>
             MONTHLY MILESTONES
           </h3>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
             {hasConsistency && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#F0F7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #5E8B61' }}>
-                  <Medal size={24} color="#5E8B61" />
+                <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#F0F7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #5E8B61' }}>
+                  <Medal size={20} color="#5E8B61" />
                 </div>
-                <div style={{ fontSize: '9px', fontWeight: 800 }}>CONSISTENT</div>
+                <div style={{ fontSize: '8px', fontWeight: 800 }}>CONSISTENT</div>
               </div>
             )}
             <div style={{ textAlign: 'center' }}>
-              <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#FFF8E1', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #FFC107' }}>
-                <Trophy size={24} color="#FFC107" />
+              <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#FFF8E1', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #FFC107' }}>
+                <Trophy size={20} color="#FFC107" />
               </div>
-              <div style={{ fontSize: '9px', fontWeight: 800 }}>BEST {data.bestRun?.distance.toFixed(0)}K</div>
+              <div style={{ fontSize: '8px', fontWeight: 800 }}>BEST {data.bestRun?.distance.toFixed(0)}K</div>
             </div>
             {hasGreatPace && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#FBE9E7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #FF5722' }}>
-                  <Flame size={24} color="#FF5722" />
+                <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#FBE9E7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px', border: '2px solid #FF5722' }}>
+                  <Flame size={20} color="#FF5722" />
                 </div>
-                <div style={{ fontSize: '9px', fontWeight: 800 }}>SPEEDSTER</div>
+                <div style={{ fontSize: '8px', fontWeight: 800 }}>SPEEDSTER</div>
               </div>
             )}
           </div>
