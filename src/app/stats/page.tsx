@@ -207,7 +207,17 @@ export default function StatsPage() {
       setRecentRuns(recent)
     }
 
-    // 4. Prepare infographic data for viewing month (Always do this independently)
+    setIsLoading(false)
+  }
+
+  const prepareReportData = async () => {
+    if (!user) return
+    setIsLoading(true)
+    
+    const getLocalISODate = (d: Date) => {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+
     const startOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
     const endOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
     const daysInMonth = endOfMonth.getDate()
@@ -230,8 +240,8 @@ export default function StatsPage() {
 
     if (thisMonthRuns) {
       thisMonthRuns.forEach((r: any) => {
-        const [year, month, day] = r.activity_date.split('-').map(Number)
-        const runD = new Date(year, month - 1, day)
+        const parts = r.activity_date.split('-')
+        const runD = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
         const d = runD.getDate()
         const dow = runD.getDay()
         
@@ -271,19 +281,11 @@ export default function StatsPage() {
       quality: { good: qualityGood, normal: qualityNormal },
       maxStreak: maxStrk
     })
-
-    const { data: allRuns } = await supabase
-      .from('run_sessions')
-      .select('activity_date')
-      .eq('profile_id', user.id)
-      .eq('status', 'verified')
     
-    if (allRuns) {
-      setAllVerifiedRuns(allRuns)
-    }
-
     setIsLoading(false)
+    setShowInfographic(true)
   }
+
 
   const handleDownload = async () => {
     if (!reportRef.current) return
@@ -442,21 +444,22 @@ export default function StatsPage() {
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h2 className="section-title" style={{ fontSize: '1.2rem', marginBottom: 0 }}>Monthly Calendar</h2>
+                    <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem' }}>Monthly Report</h2>
                     <button 
-                      onClick={() => setShowInfographic(true)}
-                      style={{
-                        background: 'var(--volt)',
-                        color: '#000',
+                      onClick={prepareReportData}
+                      className="stats-card" 
+                      style={{ 
+                        padding: '8px 16px', 
+                        fontSize: '0.8rem', 
+                        background: 'var(--volt)', 
+                        color: '#000', 
                         border: 'none',
-                        borderRadius: '20px',
-                        padding: '6px 14px',
-                        fontSize: '0.8rem',
                         fontWeight: 700,
+                        borderRadius: '20px',
                         cursor: 'pointer'
                       }}
                     >
-                      Generate Report
+                      {reportData ? 'View Report' : 'Generate Report'}
                     </button>
                   </div>
                   <div className="calendar-grid" style={{
