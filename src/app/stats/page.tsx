@@ -214,6 +214,8 @@ export default function StatsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setIsLoading(true)
+
+    const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).single()
     
     const getLocalISODate = (d: Date) => {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
