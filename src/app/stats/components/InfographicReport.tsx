@@ -14,6 +14,7 @@ interface InfographicProps {
     dowData?: number[]
     quality?: { good: number; normal: number }
     maxStreak?: number
+    totalCalories?: number
   }
 }
 
@@ -41,7 +42,6 @@ export default function InfographicReport({ data }: InfographicProps) {
   // Reactive calculations
   const safeDailyDistances = data.dailyDistances || []
   const maxDist = Math.max(...safeDailyDistances.map(d => d.distance), 5)
-  const calories = Math.round(data.totalDistance * 65)
   const hasGreatPace = data.avgPace > 0 && data.avgPace <= 330 // Under 5:30 min/km
 
   if (!mounted) return null
@@ -142,7 +142,7 @@ export default function InfographicReport({ data }: InfographicProps) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#88A096', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 800, letterSpacing: '0.5px' }}>
               <Flame size={14} /> Cal
             </div>
-            <div style={{ fontSize: '32px', fontWeight: 900, lineHeight: 1 }}>{Math.round(calories/100)*100}<span style={{ fontSize: '12px', fontWeight: 500, marginLeft: '3px', opacity: 0.8 }}>kcal</span></div>
+            <div style={{ fontSize: '32px', fontWeight: 900, lineHeight: 1 }}>{data.totalCalories || 0}<span style={{ fontSize: '14px', fontWeight: 500, marginLeft: '3px', opacity: 0.8 }}>kcal</span></div>
           </div>
         </div>
 

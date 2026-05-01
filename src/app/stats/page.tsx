@@ -224,7 +224,7 @@ export default function StatsPage() {
       .gte('activity_date', getLocalISODate(startOfMonth))
       .lte('activity_date', getLocalISODate(endOfMonth))
 
-    let mDist = 0, mRuns = 0, mDur = 0, mPaceTot = 0, mPaceCount = 0, mHrTot = 0, mHrCount = 0
+    let mDist = 0, mRuns = 0, mDur = 0, mPaceTot = 0, mPaceCount = 0, mHrTot = 0, mHrCount = 0, mCal = 0
     let bestR: any = null
     const dowMap: Record<number, number> = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 }
     let qualityGood = 0, qualityNormal = 0
@@ -242,6 +242,7 @@ export default function StatsPage() {
         mDist += dist
         mRuns++
         mDur += parseInt(r.duration_sec || 0)
+        mCal += parseInt(r.calories || 0)
         const p = parseInt(r.pace_sec_per_km || 0)
         if (p > 0) { mPaceTot += p; mPaceCount++ }
         const hr = parseInt(r.avg_heart_rate || 0)
@@ -251,6 +252,7 @@ export default function StatsPage() {
         else qualityNormal++
       })
     }
+
 
     let maxStrk = 0, currStrk = 0
     for (let i = 1; i <= daysInMonth; i++) {
@@ -263,6 +265,7 @@ export default function StatsPage() {
       totalDistance: mDist,
       totalRuns: mRuns,
       totalDurationSec: mDur,
+      totalCalories: mCal,
       avgPace: mPaceCount > 0 ? mPaceTot / mPaceCount : 0,
       avgHeartRate: mHrCount > 0 ? Math.round(mHrTot / mHrCount) : 0,
       dailyDistances: Object.keys(dailyMap).sort((a,b) => parseInt(a) - parseInt(b)).map(d => ({ 
