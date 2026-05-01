@@ -233,18 +233,17 @@ export default function StatsPage() {
       let mHrCount = 0
       let bestR: any = null
 
-      // Fetch runs for the viewing month specifically for the report
-      const { data: thisMonthRuns } = await supabase
-        .from('run_sessions')
-        .select('*')
-        .eq('profile_id', user.id)
-        .eq('status', 'verified')
-        .gte('activity_date', getLocalISODate(startOfMonth))
-        .lte('activity_date', getLocalISODate(endOfMonth))
+      const dowMap: Record<number, number> = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 }
+      let qualityGood = 0
+      let qualityNormal = 0
 
       if (thisMonthRuns) {
         thisMonthRuns.forEach((r: any) => {
-          const d = new Date(r.activity_date).getDate()
+          const runD = new Date(r.activity_date)
+          const d = runD.getDate()
+          const dow = runD.getDay()
+          dowMap[dow]++
+
           const dist = parseFloat(r.distance_km || 0)
           dailyMap[d] += dist
           mDist += dist
@@ -255,6 +254,11 @@ export default function StatsPage() {
           const hr = parseInt(r.avg_heart_rate || 0)
           if (hr > 0) { mHrTot += hr; mHrCount++ }
           if (!bestR || dist > parseFloat(bestR.distance_km)) bestR = r
+
+          // Simple quality logic: if hr is low and pace is decent, it's 'Good'
+          // Let's say if pace < 400 (6:40) and hr < 150, or just based on pace
+          if (p > 0 && p < 360) qualityGood++
+          else qualityNormal++
         })
       }
 
@@ -267,7 +271,9 @@ export default function StatsPage() {
         avgHeartRate: mHrCount > 0 ? Math.round(mHrTot / mHrCount) : 0,
         dailyDistances: Object.entries(dailyMap).map(([day, distance]) => ({ day: parseInt(day), distance })),
         bestRun: bestR ? { distance: parseFloat(bestR.distance_km), date: bestR.activity_date } : null,
-        displayName: profile?.display_name || 'Runner'
+        displayName: profile?.display_name || 'Runner',
+        dowData: [dowMap[1], dowMap[2], dowMap[3], dowMap[4], dowMap[5], dowMap[6], dowMap[0]], // M-S
+        quality: { good: qualityGood, normal: qualityNormal }
       })
     }
 
