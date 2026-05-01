@@ -17,7 +17,15 @@ interface InfographicProps {
   }
 }
 
+import { useState, useEffect } from 'react'
+
 export default function InfographicReport({ data }: InfographicProps) {
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const formatDuration = (sec: number) => {
     const h = Math.floor(sec / 3600)
     const m = Math.floor((sec % 3600) / 60)
@@ -30,11 +38,13 @@ export default function InfographicReport({ data }: InfographicProps) {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  const maxDist = Math.max(...data.dailyDistances.map(d => d.distance), 5)
+  // Reactive calculations
+  const safeDailyDistances = data.dailyDistances || []
+  const maxDist = Math.max(...safeDailyDistances.map(d => d.distance), 5)
   const calories = Math.round(data.totalDistance * 65)
-  
-  // Calculate streaks or milestones
   const hasGreatPace = data.avgPace > 0 && data.avgPace <= 330 // Under 5:30 min/km
+
+  if (!mounted) return null
 
   return (
     <div id="infographic-report" style={{
