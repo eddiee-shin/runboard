@@ -67,6 +67,39 @@ export default function UploadPage() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
   
+  // Garmin Connect
+  const [showGarminModal, setShowGarminModal] = useState(false)
+  const [garminEmail, setGarminEmail] = useState('')
+  const [garminPassword, setGarminPassword] = useState('')
+  const [isGarminSyncing, setIsGarminSyncing] = useState(false)
+  const [garminSyncMessage, setGarminSyncMessage] = useState('')
+
+  const handleGarminSync = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsGarminSyncing(true)
+    setGarminSyncMessage('')
+    try {
+      const res = await fetch('/api/garmin/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: garminEmail, password: garminPassword }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setGarminSyncMessage(`✅ ${json.message}`)
+        setTimeout(() => {
+          setShowGarminModal(false)
+        }, 2000)
+      } else {
+        setGarminSyncMessage(`❌ ${json.error || 'Garmin 동기화 실패'}`)
+      }
+    } catch (err: any) {
+      setGarminSyncMessage(`❌ ${err.message}`)
+    } finally {
+      setIsGarminSyncing(false)
+    }
+  }
+  
   // Form State
   const [activityDate, setActivityDate] = useState(getLocalDateString())
   const [distanceKm, setDistanceKm] = useState('')
@@ -262,40 +295,65 @@ export default function UploadPage() {
     <div className="content">
       <h2 className="header-title" style={{ fontSize: '2rem', marginBottom: '24px', color: 'var(--text-primary)' }}>ADD RUN</h2>
 
-      {stravaConnected && (
-        <div style={{ marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {stravaConnected && (
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <button
+              onClick={handleStravaSync}
+              disabled={isSyncing}
+              style={{
+                width: '100%',
+                background: '#FC4C02',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '14px',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: isSyncing ? 'wait' : 'pointer',
+                opacity: isSyncing ? 0.7 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff">
+                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
+              </svg>
+              {isSyncing ? 'Syncing...' : 'Sync from Strava'}
+            </button>
+            {syncMessage && (
+              <div style={{ marginTop: '6px', fontSize: '0.85rem', textAlign: 'center', color: syncMessage.includes('❌') ? '#ff4444' : 'var(--volt)' }}>
+                {syncMessage}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ flex: 1, minWidth: '200px' }}>
           <button
-            onClick={handleStravaSync}
-            disabled={isSyncing}
+            onClick={() => setShowGarminModal(true)}
             style={{
               width: '100%',
-              background: '#FC4C02',
+              background: '#007CC3',
               color: '#fff',
               border: 'none',
               borderRadius: '12px',
               padding: '14px',
-              fontSize: '1rem',
+              fontSize: '0.95rem',
               fontWeight: 600,
-              cursor: isSyncing ? 'wait' : 'pointer',
-              opacity: isSyncing ? 0.7 : 1,
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px'
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
-              <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
-            </svg>
-            {isSyncing ? 'Syncing...' : 'Sync from Strava (Last 7 Days)'}
+            <span style={{ fontWeight: 800 }}>GARMIN</span> Sync Connect
           </button>
-          {syncMessage && (
-            <div style={{ marginTop: '8px', fontSize: '0.9rem', textAlign: 'center', color: syncMessage.includes('❌') ? '#ff4444' : 'var(--volt)' }}>
-              {syncMessage}
-            </div>
-          )}
         </div>
-      )}
+      </div>
 
       <div className="upload-mode-toggle">
         <button 
@@ -466,6 +524,136 @@ export default function UploadPage() {
           >
             {isSaving ? <><Loader2 className="animate-spin" size={24} /> SAVING...</> : 'SAVE RUN'}
           </button>
+        </div>
+      )}
+      {showGarminModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-card, #1c1c1e)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#007CC3', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                GARMIN Connect Sync
+              </h3>
+              <button
+                onClick={() => setShowGarminModal(false)}
+                style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: '#aaa', marginBottom: '20px', lineHeight: '1.4' }}>
+              Garmin Connect 계정 정보로 최신 러닝 기록을 가져옵니다. 계정 정보는 보관되지 않고 동기화 용도로만 일회성 사용됩니다.
+            </p>
+
+            <form onSubmit={handleGarminSync}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '6px' }}>Garmin Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="your-email@example.com"
+                  value={garminEmail}
+                  onChange={(e) => setGarminEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    background: '#111',
+                    color: '#fff',
+                    fontSize: '0.95rem'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '6px' }}>Garmin Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={garminPassword}
+                  onChange={(e) => setGarminPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    background: '#111',
+                    color: '#fff',
+                    fontSize: '0.95rem'
+                  }}
+                />
+              </div>
+
+              {garminSyncMessage && (
+                <div style={{
+                  marginBottom: '16px',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  textAlign: 'center',
+                  background: garminSyncMessage.includes('❌') ? 'rgba(255,68,68,0.1)' : 'rgba(212,255,0,0.1)',
+                  color: garminSyncMessage.includes('❌') ? '#ff4444' : 'var(--volt)'
+                }}>
+                  {garminSyncMessage}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowGarminModal(false)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'none',
+                    color: '#ccc',
+                    cursor: 'pointer'
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isGarminSyncing}
+                  style={{
+                    flex: 2,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#007CC3',
+                    color: '#fff',
+                    fontWeight: 600,
+                    cursor: isGarminSyncing ? 'wait' : 'pointer',
+                    opacity: isGarminSyncing ? 0.7 : 1
+                  }}
+                >
+                  {isGarminSyncing ? '동기화 중...' : '동기화 시작'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
