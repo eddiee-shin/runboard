@@ -6,10 +6,14 @@ export async function GET(request: Request) {
   const code = url.searchParams.get('code')
   const error = url.searchParams.get('error')
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || url.origin
+  const baseUrl = url.origin
 
-  if (error || !code) {
-    return NextResponse.redirect(`${baseUrl}/profile?strava=error`)
+  if (error) {
+    return NextResponse.redirect(`${baseUrl}/profile?strava=error&reason=${encodeURIComponent(error)}`)
+  }
+
+  if (!code) {
+    return NextResponse.redirect(`${baseUrl}/profile?strava=error&reason=${encodeURIComponent('No authorization code provided')}`)
   }
 
   const supabase = createClient()
@@ -33,8 +37,9 @@ export async function GET(request: Request) {
     })
 
     if (!tokenRes.ok) {
-      console.error('Strava token exchange failed:', await tokenRes.text())
-      return NextResponse.redirect(`${baseUrl}/profile?strava=error`)
+      const errText = await tokenRes.text()
+      console.error('Strava token exchange failed:', errText)
+      return NextResponse.redirect(`${baseUrl}/profile?strava=error&reason=${encodeURIComponent('Token exchange failed: ' + errText)}`)
     }
 
     const tokenData = await tokenRes.json()
@@ -53,12 +58,12 @@ export async function GET(request: Request) {
 
     if (dbError) {
       console.error('Failed to save Strava tokens:', dbError)
-      return NextResponse.redirect(`${baseUrl}/profile?strava=error`)
+      return NextResponse.redirect(`${baseUrl}/profile?strava=error&reason=${encodeURIComponent('DB save error: ' + dbError.message)}`)
     }
 
     return NextResponse.redirect(`${baseUrl}/profile?strava=connected`)
-  } catch (err) {
+  } catch (err: any) {
     console.error('Strava callback error:', err)
-    return NextResponse.redirect(`${baseUrl}/profile?strava=error`)
+    return NextResponse.redirect(`${baseUrl}/profile?strava=error&reason=${encodeURIComponent(err.message || 'Unknown callback error')}`)
   }
 }

@@ -30,10 +30,11 @@ export default function ProfilePage() {
 
     // Check for Strava callback status
     const stravaStatus = searchParams?.get('strava')
+    const stravaReason = searchParams?.get('reason')
     if (stravaStatus === 'connected') {
       setSyncMessage('✅ Strava connected successfully!')
     } else if (stravaStatus === 'error') {
-      setSyncMessage('❌ Failed to connect Strava. Please try again.')
+      setSyncMessage(`❌ Failed to connect Strava. ${stravaReason || 'Please try again.'}`)
     }
   }, [])
 

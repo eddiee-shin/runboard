@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   
   const origin = new URL(request.url).origin
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
+  const baseUrl = origin
 
   if (!user) {
     return NextResponse.redirect(new URL('/login', baseUrl))
