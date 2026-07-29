@@ -1,4 +1,4 @@
-const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+const MOBILE_UA = 'Connect/4.75.1 (com.garmin.connect.mobile; build:4.75.1.1; iOS 16.5.0)'
 
 interface GarminSyncParams {
   username?: string
@@ -45,14 +45,13 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
       }
     }
 
-    // Helper to fetch with manual redirect tracking so Set-Cookie is never lost across 302 redirects
     const customFetch = async (url: string, options: RequestInit = {}, maxRedirects = 8): Promise<Response> => {
       let currentUrl = url
       let res: Response = new Response()
 
       for (let i = 0; i < maxRedirects; i++) {
         const reqHeaders: Record<string, string> = {
-          'User-Agent': USER_AGENT,
+          'User-Agent': MOBILE_UA,
           ...(options.headers as Record<string, string> || {}),
         }
 
@@ -73,7 +72,6 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
           const loc = res.headers.get('location')
           if (!loc) break
           currentUrl = loc.startsWith('http') ? loc : new URL(loc, currentUrl).toString()
-          // For 302 redirect after POST, switch to GET
           options = { ...options, method: 'GET', body: undefined }
         } else {
           break
@@ -116,125 +114,83 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
       }
     }
 
-    const embedUrl = 'https://sso.garmin.com/sso/signin?id=gauth-widget&embedWidget=true&gauthHost=https%3A%2F%2Fsso.garmin.com%2Fsso&service=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F&source=https%3A%2F%2Fconnect.garmin.com%2Fsignin&redirectAfterAccountLoginUrl=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F'
-
+    const serviceUrl = 'https://mobile.integration.garmin.com/gcm/ios'
     let ticket: string | null = null
 
     if (!mfaCode) {
-      // Step 1: GET Embed Page to get CSRF token and initial cookies
-      const res1 = await customFetch(embedUrl, {
-        headers: {
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-        }
-      })
-
-      const html1 = await res1.text()
-      const csrfMatch = html1.match(/name="_csrf"\s+value="([^"]+)"/) || html1.match(/value="([^"]+)"\s+name="_csrf"/)
-      const csrfToken = csrfMatch ? csrfMatch[1] : ''
-
-      if (!csrfToken) {
-        return { error: 'Garmin SSO 초기화 실패 (CSRF 토큰을 찾을 수 없습니다).' }
-      }
-
-      // Step 2: Submit Credentials
-      const signinUrl = 'https://sso.garmin.com/sso/signin?id=gauth-widget&embedWidget=true&gauthHost=https%3A%2F%2Fsso.garmin.com%2Fsso&service=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F&source=https%3A%2F%2Fconnect.garmin.com%2Fsignin'
-
-      const params = new URLSearchParams({
-        username: username || '',
-        password: password || '',
-        _csrf: csrfToken,
-        embed: 'true',
-        embedWidget: 'true',
-      })
-
-      const res2 = await customFetch(signinUrl, {
+      // Step 1: Mobile API Login
+      const loginUrl = `https://sso.garmin.com/mobile/api/login?clientId=GarminConnect&locale=en-US&service=${encodeURIComponent(serviceUrl)}`
+      
+      const res1 = await customFetch(loginUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Referer': embedUrl,
+          'Accept': 'application/json, text/plain, */*',
+          'Content-Type': 'application/json',
           'Origin': 'https://sso.garmin.com',
         },
-        body: params.toString(),
+        body: JSON.stringify({
+          username: username || '',
+          password: password || '',
+          rememberMe: true,
+          captchaToken: '',
+        })
       })
 
-      const html2 = await res2.text()
+      const json1 = await res1.json().catch(() => ({}))
+      const respType = json1?.responseStatus?.type
 
-      // Check for ticket
-      const ticketMatch = html2.match(/ticket=([A-Za-z0-9\-]+)/) || (res2.url && res2.url.match(/ticket=([A-Za-z0-9\-]+)/))
-      ticket = ticketMatch ? ticketMatch[1] : null
-
-      if (!ticket) {
-        if (html2.includes('mfaCode') || html2.includes('twoFactor') || html2.includes('sendCode') || html2.includes('verificationCode') || html2.includes('mfa-code') || html2.includes('verifyMFA')) {
-          return {
-            mfaRequired: true,
-            sessionCookies: getCookieHeader(),
-            message: '등록된 이메일로 6자리 2차 인증(MFA) 코드가 발송되었습니다. 인증 코드를 입력해 주세요.'
-          }
-        }
-
-        if (html2.includes('Invalid credentials') || html2.includes('login failed') || html2.includes('Unable to sign in')) {
-          return { error: 'Garmin 로그인 실패: 이메일 또는 비밀번호가 올바르지 않습니다.' }
-        }
-
+      if (respType === 'MFA_REQUIRED') {
         return {
           mfaRequired: true,
           sessionCookies: getCookieHeader(),
-          message: 'Garmin 계정 보안을 위해 이메일로 6자리 2차 인증(MFA) 코드가 발송되었습니다. 코드를 입력해 주세요.'
+          message: '등록된 이메일로 6자리 2차 인증(MFA) 코드가 발송되었습니다. 인증 코드를 입력해 주세요.'
         }
+      }
+
+      if (respType === 'INVALID_USERNAME_PASSWORD') {
+        return { error: 'Garmin 로그인 실패: 이메일 또는 비밀번호가 올바르지 않습니다.' }
+      }
+
+      if (respType === 'SUCCESSFUL' && json1.serviceTicketId) {
+        ticket = json1.serviceTicketId
+      } else {
+        return { error: `Garmin 로그인 실패: ${json1?.responseStatus?.message || '알 수 없는 오류'}` }
       }
 
     } else {
-      // Step 3: Verify MFA Code using correct Garmin MFA verification endpoints
-      const mfaEndpoints = [
-        'https://sso.garmin.com/sso/verifyMFA/loginEnterMfaCode?id=gauth-widget&embedWidget=true&gauthHost=https%3A%2F%2Fsso.garmin.com%2Fsso&service=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F&source=https%3A%2F%2Fconnect.garmin.com%2Fsignin',
-        'https://sso.garmin.com/sso/verifyMFA?id=gauth-widget&embedWidget=true&gauthHost=https%3A%2F%2Fsso.garmin.com%2Fsso&service=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F&source=https%3A%2F%2Fconnect.garmin.com%2Fsignin',
-        'https://sso.garmin.com/sso/signin?id=gauth-widget&embedWidget=true&gauthHost=https%3A%2F%2Fsso.garmin.com%2Fsso&service=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F&source=https%3A%2F%2Fconnect.garmin.com%2Fsignin'
-      ]
+      // Step 2: Mobile MFA Verification
+      const mfaUrl = `https://sso.garmin.com/mobile/api/mfa/verifyCode?clientId=GarminConnect&locale=en-US&service=${encodeURIComponent(serviceUrl)}`
 
-      let lastMfaHtml = ''
-
-      for (const endpoint of mfaEndpoints) {
-        const mfaParams = new URLSearchParams({
-          'mfa-code': mfaCode,
-          'mfaCode': mfaCode,
-          'twoFactorCode': mfaCode,
-          'embed': 'true',
-          'embedWidget': 'true',
-          'fromPage': 'mfa',
+      const resMfa = await customFetch(mfaUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'Content-Type': 'application/json',
+          'Origin': 'https://sso.garmin.com',
+        },
+        body: JSON.stringify({
+          mfaMethod: 'email',
+          mfaVerificationCode: mfaCode,
+          rememberMyBrowser: true,
+          reconsentList: [],
+          mfaSetup: false,
         })
+      })
 
-        const resMfa = await customFetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Referer': embedUrl,
-            'Origin': 'https://sso.garmin.com',
-          },
-          body: mfaParams.toString(),
-        })
+      const jsonMfa = await resMfa.json().catch(() => ({}))
 
-        lastMfaHtml = await resMfa.text()
-
-        const tMatch = lastMfaHtml.match(/ticket=([A-Za-z0-9\-]+)/) || (resMfa.url && resMfa.url.match(/ticket=([A-Za-z0-9\-]+)/))
-        if (tMatch) {
-          ticket = tMatch[1]
-          break
-        }
-      }
-
-      if (!ticket) {
-        return {
-          error: `2차 인증 코드 검증 실패: 인증 코드가 올바르지 않거나 만료되었습니다. 다시 시도해 주세요.`
-        }
+      if (jsonMfa?.responseStatus?.type === 'SUCCESSFUL' && jsonMfa.serviceTicketId) {
+        ticket = jsonMfa.serviceTicketId
+      } else {
+        return { error: '2차 인증 코드 검증 실패: 인증 코드가 올바르지 않거나 만료되었습니다. 다시 시도해 주세요.' }
       }
     }
 
-    // Step 4: Exchange ticket for Connect session with full redirect cookie tracking
+    // Step 3: Ticket Exchange for Connect session
     const modernUrl = `https://connect.garmin.com/modern?ticket=${ticket}`
     await customFetch(modernUrl)
 
-    // Step 5: Fetch activities metadata
+    // Step 4: Fetch activities metadata
     const activitiesUrl = 'https://connect.garmin.com/modern/main/service/proxy/activitylist-service/activities/search/metadata?start=0&limit=30'
     const res4 = await customFetch(activitiesUrl, {
       headers: { 'NK': 'NT' }
@@ -245,7 +201,7 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
 
     if (!res4.ok || !contentType4.includes('application/json')) {
       console.error('Garmin activities fetch non-JSON response:', bodyText.slice(0, 300))
-      return { error: 'Garmin 연동 세션 발급에 실패했습니다. 이메일/비밀번호를 확인하고 다시 시도해 주세요.' }
+      return { error: 'Garmin 활동 데이터 동기화에 실패했습니다. 잠시 후 다시 시도해 주세요.' }
     }
 
     let activities: any[] = []
