@@ -45,18 +45,52 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
       }
     }
 
-    // Try fetching activities directly if sessionCookies are present (and no mfaCode)
+    // Helper to fetch with manual redirect tracking so Set-Cookie is never lost across 302 redirects
+    const customFetch = async (url: string, options: RequestInit = {}, maxRedirects = 8): Promise<Response> => {
+      let currentUrl = url
+      let res: Response = new Response()
+
+      for (let i = 0; i < maxRedirects; i++) {
+        const reqHeaders: Record<string, string> = {
+          'User-Agent': USER_AGENT,
+          ...(options.headers as Record<string, string> || {}),
+        }
+
+        const cookieStr = getCookieHeader()
+        if (cookieStr) {
+          reqHeaders['Cookie'] = cookieStr
+        }
+
+        res = await fetch(currentUrl, {
+          ...options,
+          headers: reqHeaders,
+          redirect: 'manual',
+        })
+
+        parseAndStoreCookies(res)
+
+        if ([301, 302, 303, 307, 308].includes(res.status)) {
+          const loc = res.headers.get('location')
+          if (!loc) break
+          currentUrl = loc.startsWith('http') ? loc : new URL(loc, currentUrl).toString()
+          // For 302 redirect after POST, switch to GET
+          options = { ...options, method: 'GET', body: undefined }
+        } else {
+          break
+        }
+      }
+      return res
+    }
+
+    // 0. Try fetching activities directly if sessionCookies are present (and no mfaCode)
     if (sessionCookies && !mfaCode) {
       const activitiesUrl = 'https://connect.garmin.com/modern/main/service/proxy/activitylist-service/activities/search/metadata?start=0&limit=30'
-      const testRes = await fetch(activitiesUrl, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          'Cookie': getCookieHeader(),
-          'NK': 'NT',
-        }
+      const testRes = await customFetch(activitiesUrl, {
+        headers: { 'NK': 'NT' }
       })
 
-      if (testRes.ok) {
+      const contentType = testRes.headers.get('content-type') || ''
+      if (testRes.ok && contentType.includes('application/json')) {
         const activities = await testRes.json()
         const runs = (activities || []).filter((a: any) => {
           const typeKey = (a.activityType?.typeKey || '').toLowerCase()
@@ -88,15 +122,13 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
 
     if (!mfaCode) {
       // Step 1: GET Embed Page to get CSRF token and initial cookies
-      const res1 = await fetch(embedUrl, {
+      const res1 = await customFetch(embedUrl, {
         headers: {
-          'User-Agent': USER_AGENT,
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
         }
       })
 
-      parseAndStoreCookies(res1)
       const html1 = await res1.text()
       const csrfMatch = html1.match(/name="_csrf"\s+value="([^"]+)"/) || html1.match(/value="([^"]+)"\s+name="_csrf"/)
       const csrfToken = csrfMatch ? csrfMatch[1] : ''
@@ -116,19 +148,16 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
         embedWidget: 'true',
       })
 
-      const res2 = await fetch(signinUrl, {
+      const res2 = await customFetch(signinUrl, {
         method: 'POST',
         headers: {
-          'User-Agent': USER_AGENT,
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Cookie': getCookieHeader(),
           'Referer': embedUrl,
           'Origin': 'https://sso.garmin.com',
         },
         body: params.toString(),
       })
 
-      parseAndStoreCookies(res2)
       const html2 = await res2.text()
 
       // Check for ticket
@@ -136,7 +165,6 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
       ticket = ticketMatch ? ticketMatch[1] : null
 
       if (!ticket) {
-        // If MFA required or signin needs 2FA
         if (html2.includes('mfaCode') || html2.includes('twoFactor') || html2.includes('sendCode') || html2.includes('verificationCode') || html2.includes('mfa-code') || html2.includes('verifyMFA')) {
           return {
             mfaRequired: true,
@@ -176,19 +204,16 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
           'fromPage': 'mfa',
         })
 
-        const resMfa = await fetch(endpoint, {
+        const resMfa = await customFetch(endpoint, {
           method: 'POST',
           headers: {
-            'User-Agent': USER_AGENT,
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Cookie': getCookieHeader(),
             'Referer': embedUrl,
             'Origin': 'https://sso.garmin.com',
           },
           body: mfaParams.toString(),
         })
 
-        parseAndStoreCookies(resMfa)
         lastMfaHtml = await resMfa.text()
 
         const tMatch = lastMfaHtml.match(/ticket=([A-Za-z0-9\-]+)/) || (resMfa.url && resMfa.url.match(/ticket=([A-Za-z0-9\-]+)/))
@@ -199,38 +224,36 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
       }
 
       if (!ticket) {
-        console.error('Garmin MFA Verification HTML response:', lastMfaHtml.slice(0, 300))
         return {
           error: `2차 인증 코드 검증 실패: 인증 코드가 올바르지 않거나 만료되었습니다. 다시 시도해 주세요.`
         }
       }
     }
 
-    // Exchange ticket for Connect session
+    // Step 4: Exchange ticket for Connect session with full redirect cookie tracking
     const modernUrl = `https://connect.garmin.com/modern?ticket=${ticket}`
-    const res3 = await fetch(modernUrl, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Cookie': getCookieHeader(),
-      }
-    })
-    parseAndStoreCookies(res3)
+    await customFetch(modernUrl)
 
-    // Fetch activities metadata
+    // Step 5: Fetch activities metadata
     const activitiesUrl = 'https://connect.garmin.com/modern/main/service/proxy/activitylist-service/activities/search/metadata?start=0&limit=30'
-    const res4 = await fetch(activitiesUrl, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Cookie': getCookieHeader(),
-        'NK': 'NT',
-      }
+    const res4 = await customFetch(activitiesUrl, {
+      headers: { 'NK': 'NT' }
     })
 
-    if (!res4.ok) {
-      return { error: `Garmin 활동 데이터 조회 실패 (HTTP ${res4.status})` }
+    const contentType4 = res4.headers.get('content-type') || ''
+    const bodyText = await res4.text()
+
+    if (!res4.ok || !contentType4.includes('application/json')) {
+      console.error('Garmin activities fetch non-JSON response:', bodyText.slice(0, 300))
+      return { error: 'Garmin 연동 세션 발급에 실패했습니다. 이메일/비밀번호를 확인하고 다시 시도해 주세요.' }
     }
 
-    const activities = await res4.json()
+    let activities: any[] = []
+    try {
+      activities = JSON.parse(bodyText)
+    } catch {
+      return { error: 'Garmin 응답 데이터를 파싱할 수 없습니다.' }
+    }
 
     // Filter running activities
     const runs = (activities || []).filter((a: any) => {
