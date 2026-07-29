@@ -82,10 +82,15 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
 
     // 0. Try fetching activities directly if sessionCookies are present (and no mfaCode)
     if (sessionCookies && !mfaCode) {
+      const jwtWeb = cookieJar.get('JWT_WEB')
       const activitiesUrl = 'https://connect.garmin.com/modern/main/service/proxy/activitylist-service/activities/search/metadata?start=0&limit=30'
-      const testRes = await customFetch(activitiesUrl, {
-        headers: { 'NK': 'NT' }
-      })
+      
+      const reqHeaders: Record<string, string> = { 'NK': 'NT' }
+      if (jwtWeb) {
+        reqHeaders['Authorization'] = `Bearer ${jwtWeb}`
+      }
+
+      const testRes = await customFetch(activitiesUrl, { headers: reqHeaders })
 
       const contentType = testRes.headers.get('content-type') || ''
       if (testRes.ok && contentType.includes('application/json')) {
@@ -114,7 +119,7 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
       }
     }
 
-    const serviceUrl = 'https://mobile.integration.garmin.com/gcm/ios'
+    const serviceUrl = 'https://connect.garmin.com/modern/'
     let ticket: string | null = null
 
     if (!mfaCode) {
@@ -190,10 +195,17 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
     const modernUrl = `https://connect.garmin.com/modern?ticket=${ticket}`
     await customFetch(modernUrl)
 
+    const jwtWeb = cookieJar.get('JWT_WEB')
+
     // Step 4: Fetch activities metadata
     const activitiesUrl = 'https://connect.garmin.com/modern/main/service/proxy/activitylist-service/activities/search/metadata?start=0&limit=30'
+    const fetchHeaders: Record<string, string> = { 'NK': 'NT' }
+    if (jwtWeb) {
+      fetchHeaders['Authorization'] = `Bearer ${jwtWeb}`
+    }
+
     const res4 = await customFetch(activitiesUrl, {
-      headers: { 'NK': 'NT' }
+      headers: fetchHeaders
     })
 
     const contentType4 = res4.headers.get('content-type') || ''
