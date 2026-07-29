@@ -12,9 +12,23 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json().catch(() => ({}))
-    const { username, password, mfaCode } = body
+    const { username, password, mfaCode, sessionCookies: clientSessionCookies } = body
 
-    if (!username || !password) {
+    // 1. Check if DB has stored garmin_tokens for this user
+    let storedSessionCookies: string | null = clientSessionCookies || null
+    if (!storedSessionCookies) {
+      const { data: tokenRow } = await supabase
+        .from('garmin_tokens')
+        .select('session_data')
+        .eq('profile_id', user.id)
+        .single()
+
+      if (tokenRow && tokenRow.session_data) {
+        storedSessionCookies = tokenRow.session_data
+      }
+    }
+
+    if (!storedSessionCookies && (!username || !password)) {
       return NextResponse.json(
         { error: 'Garmin 이메일과 비밀번호를 입력해 주세요.' },
         { status: 400 }
@@ -23,23 +37,40 @@ export async function POST(request: Request) {
 
     // Call pure TypeScript Garmin Client
     const result = await syncGarminActivities({
-      username,
-      password,
+      username: username || '',
+      password: password || '',
       mfaCode: mfaCode || null,
+      sessionCookies: storedSessionCookies,
     })
 
     if (result.mfaRequired) {
       return NextResponse.json({
         mfaRequired: true,
+        sessionCookies: result.sessionCookies || storedSessionCookies,
         message: result.message || '등록된 이메일로 6자리 2차 인증(MFA) 코드가 발송되었습니다. 인증 코드를 입력해 주세요.',
       })
     }
 
     if (result.error || !result.success) {
+      // If saved session was invalid, remove it from DB
+      if (storedSessionCookies) {
+        await supabase.from('garmin_tokens').delete().eq('profile_id', user.id)
+      }
       return NextResponse.json(
         { error: result.error || 'Garmin 동기화 중 오류가 발생했습니다.' },
         { status: 400 }
       )
+    }
+
+    // Save successful session cookies in DB for future 1-click automatic syncs
+    if (result.sessionCookies) {
+      await supabase
+        .from('garmin_tokens')
+        .upsert({
+          profile_id: user.id,
+          session_data: result.sessionCookies,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'profile_id' })
     }
 
     const runs = result.runs || []

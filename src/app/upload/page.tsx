@@ -68,16 +68,18 @@ export default function UploadPage() {
   const [syncMessage, setSyncMessage] = useState('')
   
   // Garmin Connect
+  const [garminConnected, setGarminConnected] = useState(false)
   const [showGarminModal, setShowGarminModal] = useState(false)
   const [garminEmail, setGarminEmail] = useState('')
   const [garminPassword, setGarminPassword] = useState('')
   const [garminMfaCode, setGarminMfaCode] = useState('')
+  const [garminSessionCookies, setGarminSessionCookies] = useState<string | null>(null)
   const [requiresMfa, setRequiresMfa] = useState(false)
   const [isGarminSyncing, setIsGarminSyncing] = useState(false)
   const [garminSyncMessage, setGarminSyncMessage] = useState('')
 
-  const handleGarminSync = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleGarminSync = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
     setIsGarminSyncing(true)
     setGarminSyncMessage('')
     try {
@@ -88,15 +90,20 @@ export default function UploadPage() {
           username: garminEmail,
           password: garminPassword,
           mfaCode: garminMfaCode || null,
+          sessionCookies: garminSessionCookies || null,
         }),
       })
       const json = await res.json()
       if (res.ok) {
         if (json.mfaRequired) {
           setRequiresMfa(true)
+          if (json.sessionCookies) {
+            setGarminSessionCookies(json.sessionCookies)
+          }
           setGarminSyncMessage(`ℹ️ ${json.message}`)
         } else {
           setGarminSyncMessage(`✅ ${json.message}`)
+          setGarminConnected(true)
           setTimeout(() => {
             setShowGarminModal(false)
             setRequiresMfa(false)
@@ -112,7 +119,7 @@ export default function UploadPage() {
       setIsGarminSyncing(false)
     }
   }
-  
+
   // Form State
   const [activityDate, setActivityDate] = useState(getLocalDateString())
   const [distanceKm, setDistanceKm] = useState('')
@@ -141,6 +148,10 @@ export default function UploadPage() {
     // Check Strava connection
     const { data: stravaToken } = await supabase.from('strava_tokens').select('profile_id').eq('profile_id', user.id).single()
     setStravaConnected(!!stravaToken)
+
+    // Check Garmin connection
+    const { data: garminToken } = await supabase.from('garmin_tokens').select('profile_id').eq('profile_id', user.id).single()
+    setGarminConnected(!!garminToken)
     const { data: goals } = await supabase.from('running_goals').select('goal_type, goal_value').eq('profile_id', user.id)
 
     let wGoal = null
@@ -346,7 +357,8 @@ export default function UploadPage() {
 
         <div style={{ flex: 1, minWidth: '200px' }}>
           <button
-            onClick={() => setShowGarminModal(true)}
+            onClick={() => garminConnected ? handleGarminSync() : setShowGarminModal(true)}
+            disabled={isGarminSyncing}
             style={{
               width: '100%',
               background: '#007CC3',
@@ -356,15 +368,21 @@ export default function UploadPage() {
               padding: '14px',
               fontSize: '0.95rem',
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: isGarminSyncing ? 'wait' : 'pointer',
+              opacity: isGarminSyncing ? 0.7 : 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px'
             }}
           >
-            <span style={{ fontWeight: 800 }}>GARMIN</span> Sync Connect
+            <span style={{ fontWeight: 800 }}>GARMIN</span> {isGarminSyncing ? 'Syncing...' : (garminConnected ? 'Sync from Garmin' : 'Sync Connect')}
           </button>
+          {garminSyncMessage && !showGarminModal && (
+            <div style={{ marginTop: '6px', fontSize: '0.85rem', textAlign: 'center', color: garminSyncMessage.includes('❌') ? '#ff4444' : 'var(--volt)' }}>
+              {garminSyncMessage}
+            </div>
+          )}
         </div>
       </div>
 
