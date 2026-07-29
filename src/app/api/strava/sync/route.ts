@@ -67,10 +67,10 @@ export async function POST() {
       }
     }
 
-    // 3. Fetch recent activities from Strava (last 7 days)
-    const sevenDaysAgo = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000)
+    // 3. Fetch recent activities from Strava (last 90 days, up to 100 activities)
+    const ninetyDaysAgo = Math.floor((Date.now() - 90 * 24 * 60 * 60 * 1000) / 1000)
     const activitiesRes = await fetch(
-      `https://www.strava.com/api/v3/athlete/activities?after=${sevenDaysAgo}&per_page=30`,
+      `https://www.strava.com/api/v3/athlete/activities?after=${ninetyDaysAgo}&per_page=100`,
       {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       }
@@ -97,25 +97,21 @@ export async function POST() {
 
     const activities = await activitiesRes.json()
 
-    // 4. Filter only Run activities (support type & sport_type)
-    const runs = activities.filter(
-      (a: any) =>
-        a.type === 'Run' ||
-        a.type === 'VirtualRun' ||
-        a.sport_type === 'Run' ||
-        a.sport_type === 'TrailRun' ||
-        a.sport_type === 'VirtualRun'
-    )
+    // 4. Filter only Run activities (flexible matching on type & sport_type)
+    const runs = activities.filter((a: any) => {
+      const typeStr = (a.type || '').toLowerCase()
+      const sportStr = (a.sport_type || '').toLowerCase()
+      return typeStr.includes('run') || sportStr.includes('run')
+    })
 
-    // 5. Get existing sessions for this user in the date range to avoid duplicates
+    // 5. Get existing sessions for this user to avoid duplicates
     const { data: existingSessions } = await supabase
       .from('run_sessions')
       .select('activity_date, distance_km')
       .eq('profile_id', user.id)
-      .eq('status', 'verified')
 
     const existingKeys = new Set(
-      (existingSessions || []).map((s: any) => `${s.activity_date}_${parseFloat(s.distance_km).toFixed(2)}`)
+      (existingSessions || []).map((s: any) => `${s.activity_date}_${parseFloat(s.distance_km || 0).toFixed(2)}`)
     )
 
     // 6. Insert new runs
@@ -139,7 +135,7 @@ export async function POST() {
           activity_date: activityDate,
           distance_km: parseFloat(distanceKm),
           duration_sec: durationSec,
-          pace_sec_per_km: Math.round(paceSecPerKm),
+          pace_sec_per_km: isFinite(paceSecPerKm) ? Math.round(paceSecPerKm) : 0,
           calories: calories,
           avg_heart_rate: avgHr ? Math.round(avgHr) : null,
           status: 'verified',
@@ -148,16 +144,28 @@ export async function POST() {
       if (!insertError) {
         importedCount++
         existingKeys.add(key) // Prevent duplicates within same batch
+      } else {
+        console.error('Failed to insert Strava run:', insertError)
       }
+    }
+
+    let resultMsg = ''
+    if (importedCount > 0) {
+      resultMsg = `${importedCount}개 새 러닝 기록을 가져왔습니다!`
+    } else if (runs.length > 0) {
+      resultMsg = `최근 90일 동안의 Strava 러닝 기록 ${runs.length}개가 이미 모두 등록되어 있습니다.`
+    } else if (activities.length > 0) {
+      resultMsg = `최근 90일 동안 Strava에 ${activities.length}개의 활동이 있으나 러닝(Run) 기록이 없습니다.`
+    } else {
+      resultMsg = '최근 90일 동안 Strava에 등록된 활동이 없습니다.'
     }
 
     return NextResponse.json({ 
       success: true, 
       imported: importedCount, 
-      total: runs.length,
-      message: importedCount > 0 
-        ? `${importedCount} new run(s) imported!` 
-        : 'No new runs to import.'
+      totalRuns: runs.length,
+      totalActivities: activities.length,
+      message: resultMsg
     })
 
   } catch (err: any) {
