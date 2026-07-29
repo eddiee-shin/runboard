@@ -119,81 +119,109 @@ export async function syncGarminActivities({ username, password, mfaCode, sessio
       }
     }
 
-    const serviceUrl = 'https://connect.garmin.com/modern/'
+    // Garmin Mobile SSO Credentials Configuration
+    const configs = [
+      { clientId: 'GCM_IOS_DARK', serviceUrl: 'https://mobile.integration.garmin.com/gcm/ios' },
+      { clientId: 'GCM_ANDROID_DARK', serviceUrl: 'https://mobile.integration.garmin.com/gcm/android' },
+      { clientId: 'GarminConnect', serviceUrl: 'https://connect.garmin.com/app' },
+    ]
+
     let ticket: string | null = null
+    let activeServiceUrl = ''
+    let activeClientId = ''
+    let lastErrorMsg = ''
 
     if (!mfaCode) {
-      // Step 1: Mobile API Login
-      const loginUrl = `https://sso.garmin.com/mobile/api/login?clientId=GarminConnect&locale=en-US&service=${encodeURIComponent(serviceUrl)}`
-      
-      const res1 = await customFetch(loginUrl, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json, text/plain, */*',
-          'Content-Type': 'application/json',
-          'Origin': 'https://sso.garmin.com',
-        },
-        body: JSON.stringify({
-          username: username || '',
-          password: password || '',
-          rememberMe: true,
-          captchaToken: '',
+      // Step 1: Mobile API Login Try Cascading Configurations
+      for (const cfg of configs) {
+        const loginUrl = `https://sso.garmin.com/mobile/api/login?clientId=${encodeURIComponent(cfg.clientId)}&locale=en-US&service=${encodeURIComponent(cfg.serviceUrl)}`
+        
+        const res1 = await customFetch(loginUrl, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/json',
+            'Origin': 'https://sso.garmin.com',
+          },
+          body: JSON.stringify({
+            username: username || '',
+            password: password || '',
+            rememberMe: true,
+            captchaToken: '',
+          })
         })
-      })
 
-      const json1 = await res1.json().catch(() => ({}))
-      const respType = json1?.responseStatus?.type
+        const json1 = await res1.json().catch(() => ({}))
+        const respType = json1?.responseStatus?.type
 
-      if (respType === 'MFA_REQUIRED') {
-        return {
-          mfaRequired: true,
-          sessionCookies: getCookieHeader(),
-          message: '등록된 이메일로 6자리 2차 인증(MFA) 코드가 발송되었습니다. 인증 코드를 입력해 주세요.'
+        if (respType === 'MFA_REQUIRED') {
+          return {
+            mfaRequired: true,
+            sessionCookies: getCookieHeader(),
+            message: '등록된 이메일로 6자리 2차 인증(MFA) 코드가 발송되었습니다. 인증 코드를 입력해 주세요.'
+          }
+        }
+
+        if (respType === 'INVALID_USERNAME_PASSWORD') {
+          return { error: 'Garmin 로그인 실패: 이메일 또는 비밀번호가 올바르지 않습니다.' }
+        }
+
+        if (respType === 'SUCCESSFUL' && json1.serviceTicketId) {
+          ticket = json1.serviceTicketId
+          activeServiceUrl = cfg.serviceUrl
+          activeClientId = cfg.clientId
+          break
+        } else {
+          lastErrorMsg = json1?.responseStatus?.message || json1?.message || JSON.stringify(json1)
         }
       }
 
-      if (respType === 'INVALID_USERNAME_PASSWORD') {
-        return { error: 'Garmin 로그인 실패: 이메일 또는 비밀번호가 올바르지 않습니다.' }
-      }
-
-      if (respType === 'SUCCESSFUL' && json1.serviceTicketId) {
-        ticket = json1.serviceTicketId
-      } else {
-        return { error: `Garmin 로그인 실패: ${json1?.responseStatus?.message || '알 수 없는 오류'}` }
+      if (!ticket) {
+        return { error: `Garmin 로그인 실패: ${lastErrorMsg || '알 수 없는 오류'}` }
       }
 
     } else {
-      // Step 2: Mobile MFA Verification
-      const mfaUrl = `https://sso.garmin.com/mobile/api/mfa/verifyCode?clientId=GarminConnect&locale=en-US&service=${encodeURIComponent(serviceUrl)}`
+      // Step 2: Mobile MFA Verification Try Cascading Configurations
+      for (const cfg of configs) {
+        const mfaUrl = `https://sso.garmin.com/mobile/api/mfa/verifyCode?clientId=${encodeURIComponent(cfg.clientId)}&locale=en-US&service=${encodeURIComponent(cfg.serviceUrl)}`
 
-      const resMfa = await customFetch(mfaUrl, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json, text/plain, */*',
-          'Content-Type': 'application/json',
-          'Origin': 'https://sso.garmin.com',
-        },
-        body: JSON.stringify({
-          mfaMethod: 'email',
-          mfaVerificationCode: mfaCode,
-          rememberMyBrowser: true,
-          reconsentList: [],
-          mfaSetup: false,
+        const resMfa = await customFetch(mfaUrl, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/json',
+            'Origin': 'https://sso.garmin.com',
+          },
+          body: JSON.stringify({
+            mfaMethod: 'email',
+            mfaVerificationCode: mfaCode,
+            rememberMyBrowser: true,
+            reconsentList: [],
+            mfaSetup: false,
+          })
         })
-      })
 
-      const jsonMfa = await resMfa.json().catch(() => ({}))
+        const jsonMfa = await resMfa.json().catch(() => ({}))
 
-      if (jsonMfa?.responseStatus?.type === 'SUCCESSFUL' && jsonMfa.serviceTicketId) {
-        ticket = jsonMfa.serviceTicketId
-      } else {
+        if (jsonMfa?.responseStatus?.type === 'SUCCESSFUL' && jsonMfa.serviceTicketId) {
+          ticket = jsonMfa.serviceTicketId
+          activeServiceUrl = cfg.serviceUrl
+          activeClientId = cfg.clientId
+          break
+        }
+      }
+
+      if (!ticket) {
         return { error: '2차 인증 코드 검증 실패: 인증 코드가 올바르지 않거나 만료되었습니다. 다시 시도해 주세요.' }
       }
     }
 
     // Step 3: Ticket Exchange for Connect session
-    const modernUrl = `https://connect.garmin.com/modern?ticket=${ticket}`
-    await customFetch(modernUrl)
+    const exchangeUrl = activeServiceUrl.includes('connect.garmin.com')
+      ? `${activeServiceUrl}?ticket=${ticket}`
+      : `https://connect.garmin.com/modern?ticket=${ticket}`
+    
+    await customFetch(exchangeUrl)
 
     const jwtWeb = cookieJar.get('JWT_WEB')
 
