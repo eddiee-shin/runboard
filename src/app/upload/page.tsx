@@ -71,6 +71,8 @@ export default function UploadPage() {
   const [showGarminModal, setShowGarminModal] = useState(false)
   const [garminEmail, setGarminEmail] = useState('')
   const [garminPassword, setGarminPassword] = useState('')
+  const [garminMfaCode, setGarminMfaCode] = useState('')
+  const [requiresMfa, setRequiresMfa] = useState(false)
   const [isGarminSyncing, setIsGarminSyncing] = useState(false)
   const [garminSyncMessage, setGarminSyncMessage] = useState('')
 
@@ -82,14 +84,25 @@ export default function UploadPage() {
       const res = await fetch('/api/garmin/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: garminEmail, password: garminPassword }),
+        body: JSON.stringify({
+          username: garminEmail,
+          password: garminPassword,
+          mfaCode: garminMfaCode || null,
+        }),
       })
       const json = await res.json()
       if (res.ok) {
-        setGarminSyncMessage(`✅ ${json.message}`)
-        setTimeout(() => {
-          setShowGarminModal(false)
-        }, 2000)
+        if (json.mfaRequired) {
+          setRequiresMfa(true)
+          setGarminSyncMessage(`ℹ️ ${json.message}`)
+        } else {
+          setGarminSyncMessage(`✅ ${json.message}`)
+          setTimeout(() => {
+            setShowGarminModal(false)
+            setRequiresMfa(false)
+            setGarminMfaCode('')
+          }, 2000)
+        }
       } else {
         setGarminSyncMessage(`❌ ${json.error || 'Garmin 동기화 실패'}`)
       }
@@ -592,6 +605,7 @@ export default function UploadPage() {
                   placeholder="••••••••"
                   value={garminPassword}
                   onChange={(e) => setGarminPassword(e.target.value)}
+                  disabled={requiresMfa}
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -603,6 +617,36 @@ export default function UploadPage() {
                   }}
                 />
               </div>
+
+              {requiresMfa && (
+                <div style={{ marginBottom: '20px', padding: '14px', background: 'rgba(0,124,195,0.1)', border: '1px solid #007CC3', borderRadius: '10px' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#007CC3', fontWeight: 600, marginBottom: '6px' }}>
+                    🔑 2차 인증(MFA) 6자리 코드
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="예: 123456"
+                    value={garminMfaCode}
+                    onChange={(e) => setGarminMfaCode(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid #007CC3',
+                      background: '#000',
+                      color: 'var(--volt, #d4ff00)',
+                      fontSize: '1.1rem',
+                      letterSpacing: '4px',
+                      fontWeight: 700,
+                      textAlign: 'center'
+                    }}
+                  />
+                  <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '6px' }}>
+                    이메일함에서 Garmin이 발송한 6자리 인증 코드를 확인해 입력해 주세요.
+                  </div>
+                </div>
+              )}
 
               {garminSyncMessage && (
                 <div style={{
