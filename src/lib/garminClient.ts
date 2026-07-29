@@ -34,12 +34,12 @@ export async function syncGarminActivities({ username, password, mfaCode }: Garm
     }
 
     // 1. GET Embed Page to get CSRF token and initial cookies
-    const embedUrl = 'https://sso.garmin.com/sso/embed?id=gauth-widget&embedWidget=true&gauthHost=https%3A%2F%2Fsso.garmin.com%2Fsso&service=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F&source=https%3A%2F%2Fconnect.garmin.com%2Fsignin'
+    const embedUrl = 'https://sso.garmin.com/sso/signin?id=gauth-widget&embedWidget=true&gauthHost=https%3A%2F%2Fsso.garmin.com%2Fsso&service=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F&source=https%3A%2F%2Fconnect.garmin.com%2Fsignin&redirectAfterAccountLoginUrl=https%3A%2F%2Fconnect.garmin.com%2Fmodern%2F'
     
     const res1 = await fetch(embedUrl, {
       headers: {
         'User-Agent': USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       }
     })
@@ -60,6 +60,7 @@ export async function syncGarminActivities({ username, password, mfaCode }: Garm
       username,
       password,
       _csrf: csrfToken,
+      embed: 'true',
       embedWidget: 'true',
     })
 
