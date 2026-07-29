@@ -1,24 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { execFile } from 'child_process'
-import path from 'path'
-import { promisify } from 'util'
-
-function runPythonScript(scriptPath: string, inputPayload: string): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = execFile('python3', [scriptPath], { timeout: 45000 }, (error, stdout, stderr) => {
-      if (error) {
-        reject(error)
-      } else {
-        resolve({ stdout, stderr })
-      }
-    })
-    if (child.stdin) {
-      child.stdin.write(inputPayload)
-      child.stdin.end()
-    }
-  })
-}
+import { syncGarminActivities } from '@/lib/garminClient'
 
 export async function POST(request: Request) {
   const supabase = createClient()
@@ -39,44 +21,28 @@ export async function POST(request: Request) {
       )
     }
 
-    const scriptPath = path.join(process.cwd(), 'src/lib/garmin_sync.py')
-    const inputPayload = JSON.stringify({
-      email: username,
-      password: password,
-      mfa_code: mfaCode || null,
+    // Call pure TypeScript Garmin Client
+    const result = await syncGarminActivities({
+      username,
+      password,
+      mfaCode: mfaCode || null,
     })
 
-    // Execute Python script with stdin
-    const { stdout, stderr } = await runPythonScript(scriptPath, inputPayload)
-
-    if (!stdout || !stdout.trim()) {
-      console.error('Python execution stderr:', stderr)
-      return NextResponse.json({ error: 'Garmin 스크립트 실행 중 응답이 없습니다.' }, { status: 500 })
-    }
-
-    let pyResult: any = {}
-    try {
-      pyResult = JSON.parse(stdout.trim())
-    } catch {
-      console.error('Raw python output:', stdout)
-      return NextResponse.json({ error: `응답 해석 실패: ${stdout.slice(0, 200)}` }, { status: 500 })
-    }
-
-    if (pyResult.status === 'mfa_required') {
+    if (result.mfaRequired) {
       return NextResponse.json({
         mfaRequired: true,
-        message: pyResult.message || '등록된 이메일로 6자리 2차 인증(MFA) 코드가 발송되었습니다. 인증 코드를 입력해 주세요.',
+        message: result.message || '등록된 이메일로 6자리 2차 인증(MFA) 코드가 발송되었습니다. 인증 코드를 입력해 주세요.',
       })
     }
 
-    if (pyResult.status === 'error') {
+    if (result.error || !result.success) {
       return NextResponse.json(
-        { error: pyResult.message || 'Garmin 동기화 중 오류가 발생했습니다.' },
+        { error: result.error || 'Garmin 동기화 중 오류가 발생했습니다.' },
         { status: 400 }
       )
     }
 
-    const runs = pyResult.runs || []
+    const runs = result.runs || []
 
     // Get existing sessions to prevent duplicates
     const { data: existingSessions } = await supabase
@@ -142,7 +108,7 @@ export async function POST(request: Request) {
     })
 
   } catch (err: any) {
-    console.error('Garmin sync error:', err)
+    console.error('Garmin sync route error:', err)
     return NextResponse.json({ error: err.message || 'Garmin 동기화 중 오류가 발생했습니다.' }, { status: 500 })
   }
 }
