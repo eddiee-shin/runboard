@@ -78,18 +78,21 @@ export async function POST() {
 
     if (!activitiesRes.ok) {
       const errText = await activitiesRes.text()
-      console.error('Strava activities fetch failed:', errText)
+      console.error('Strava activities fetch failed:', activitiesRes.status, errText)
 
-      if (activitiesRes.status === 401) {
-        // Access token unauthorized, delete invalid token
+      if (activitiesRes.status === 401 || activitiesRes.status === 403) {
+        // Access token unauthorized or insufficient permissions, delete token and request reconnect
         await supabase.from('strava_tokens').delete().eq('profile_id', user.id)
         return NextResponse.json(
-          { error: 'Strava 인증이 유효하지 않습니다. 다시 연동해 주세요.', needsReconnect: true },
-          { status: 401 }
+          { error: `Strava 인증/권한(HTTP ${activitiesRes.status})이 유효하지 않습니다. Strava를 다시 연동해 주세요. (${errText})`, needsReconnect: true },
+          { status: activitiesRes.status }
         )
       }
 
-      return NextResponse.json({ error: 'Failed to fetch Strava activities' }, { status: 500 })
+      return NextResponse.json(
+        { error: `Failed to fetch Strava activities (HTTP ${activitiesRes.status}): ${errText}` },
+        { status: 500 }
+      )
     }
 
     const activities = await activitiesRes.json()
