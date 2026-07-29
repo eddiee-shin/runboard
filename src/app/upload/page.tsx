@@ -246,6 +246,9 @@ export default function UploadPage() {
       if (res.ok) {
         setSyncMessage(`✅ ${json.message}`)
       } else {
+        if (json.needsReconnect) {
+          setStravaConnected(false)
+        }
         setSyncMessage(`❌ ${json.error || 'Sync failed'}`)
       }
     } catch (err: any) {

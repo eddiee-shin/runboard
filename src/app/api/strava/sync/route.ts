@@ -42,19 +42,29 @@ export async function POST() {
 
     // 2. Refresh token if expired
     if (tokenRow.expires_at < now) {
-      const refreshed = await refreshToken(tokenRow.refresh_token)
-      accessToken = refreshed.access_token
+      try {
+        const refreshed = await refreshToken(tokenRow.refresh_token)
+        accessToken = refreshed.access_token
 
-      // Update tokens in DB
-      await supabase
-        .from('strava_tokens')
-        .update({
-          access_token: refreshed.access_token,
-          refresh_token: refreshed.refresh_token,
-          expires_at: refreshed.expires_at,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('profile_id', user.id)
+        // Update tokens in DB
+        await supabase
+          .from('strava_tokens')
+          .update({
+            access_token: refreshed.access_token,
+            refresh_token: refreshed.refresh_token,
+            expires_at: refreshed.expires_at,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('profile_id', user.id)
+      } catch (refreshErr) {
+        console.error('Strava token refresh failed. Cleaning expired tokens:', refreshErr)
+        // Clean up invalid token from DB
+        await supabase.from('strava_tokens').delete().eq('profile_id', user.id)
+        return NextResponse.json(
+          { error: 'Strava 연동이 만료되었습니다. Strava를 다시 연동해 주세요.', needsReconnect: true },
+          { status: 401 }
+        )
+      }
     }
 
     // 3. Fetch recent activities from Strava (last 7 days)
@@ -69,13 +79,30 @@ export async function POST() {
     if (!activitiesRes.ok) {
       const errText = await activitiesRes.text()
       console.error('Strava activities fetch failed:', errText)
+
+      if (activitiesRes.status === 401) {
+        // Access token unauthorized, delete invalid token
+        await supabase.from('strava_tokens').delete().eq('profile_id', user.id)
+        return NextResponse.json(
+          { error: 'Strava 인증이 유효하지 않습니다. 다시 연동해 주세요.', needsReconnect: true },
+          { status: 401 }
+        )
+      }
+
       return NextResponse.json({ error: 'Failed to fetch Strava activities' }, { status: 500 })
     }
 
     const activities = await activitiesRes.json()
 
-    // 4. Filter only Run activities
-    const runs = activities.filter((a: any) => a.type === 'Run' || a.type === 'VirtualRun')
+    // 4. Filter only Run activities (support type & sport_type)
+    const runs = activities.filter(
+      (a: any) =>
+        a.type === 'Run' ||
+        a.type === 'VirtualRun' ||
+        a.sport_type === 'Run' ||
+        a.sport_type === 'TrailRun' ||
+        a.sport_type === 'VirtualRun'
+    )
 
     // 5. Get existing sessions for this user in the date range to avoid duplicates
     const { data: existingSessions } = await supabase
