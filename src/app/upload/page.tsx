@@ -67,59 +67,6 @@ export default function UploadPage() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
   
-  // Garmin Connect
-  const [garminConnected, setGarminConnected] = useState(false)
-  const [showGarminModal, setShowGarminModal] = useState(false)
-  const [garminEmail, setGarminEmail] = useState('')
-  const [garminPassword, setGarminPassword] = useState('')
-  const [garminMfaCode, setGarminMfaCode] = useState('')
-  const [garminSessionCookies, setGarminSessionCookies] = useState<string | null>(null)
-  const [requiresMfa, setRequiresMfa] = useState(false)
-  const [isGarminSyncing, setIsGarminSyncing] = useState(false)
-  const [garminSyncMessage, setGarminSyncMessage] = useState('')
-
-  const handleGarminSync = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    setIsGarminSyncing(true)
-    setGarminSyncMessage('')
-    try {
-      const res = await fetch('/api/garmin/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: garminEmail,
-          password: garminPassword,
-          mfaCode: garminMfaCode || null,
-          sessionCookies: garminSessionCookies || null,
-        }),
-      })
-      const json = await res.json()
-      if (res.ok) {
-        if (json.mfaRequired) {
-          setRequiresMfa(true)
-          if (json.sessionCookies) {
-            setGarminSessionCookies(json.sessionCookies)
-          }
-          setGarminSyncMessage(`ℹ️ ${json.message}`)
-        } else {
-          setGarminSyncMessage(`✅ ${json.message}`)
-          setGarminConnected(true)
-          setTimeout(() => {
-            setShowGarminModal(false)
-            setRequiresMfa(false)
-            setGarminMfaCode('')
-          }, 2000)
-        }
-      } else {
-        setGarminSyncMessage(`❌ ${json.error || 'Garmin 동기화 실패'}`)
-      }
-    } catch (err: any) {
-      setGarminSyncMessage(`❌ ${err.message}`)
-    } finally {
-      setIsGarminSyncing(false)
-    }
-  }
-
   // Form State
   const [activityDate, setActivityDate] = useState(getLocalDateString())
   const [distanceKm, setDistanceKm] = useState('')
@@ -148,10 +95,6 @@ export default function UploadPage() {
     // Check Strava connection
     const { data: stravaToken } = await supabase.from('strava_tokens').select('profile_id').eq('profile_id', user.id).single()
     setStravaConnected(!!stravaToken)
-
-    // Check Garmin connection
-    const { data: garminToken } = await supabase.from('garmin_tokens').select('profile_id').eq('profile_id', user.id).single()
-    setGarminConnected(!!garminToken)
     const { data: goals } = await supabase.from('running_goals').select('goal_type, goal_value').eq('profile_id', user.id)
 
     let wGoal = null
@@ -355,35 +298,6 @@ export default function UploadPage() {
           </div>
         )}
 
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <button
-            onClick={() => garminConnected ? handleGarminSync() : setShowGarminModal(true)}
-            disabled={isGarminSyncing}
-            style={{
-              width: '100%',
-              background: '#007CC3',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '14px',
-              fontSize: '0.95rem',
-              fontWeight: 600,
-              cursor: isGarminSyncing ? 'wait' : 'pointer',
-              opacity: isGarminSyncing ? 0.7 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            <span style={{ fontWeight: 800 }}>GARMIN</span> {isGarminSyncing ? 'Syncing...' : (garminConnected ? 'Sync from Garmin' : 'Sync Connect')}
-          </button>
-          {garminSyncMessage && !showGarminModal && (
-            <div style={{ marginTop: '6px', fontSize: '0.85rem', textAlign: 'center', color: garminSyncMessage.includes('❌') ? '#ff4444' : 'var(--volt)' }}>
-              {garminSyncMessage}
-            </div>
-          )}
-        </div>
       </div>
 
       <div className="upload-mode-toggle">
@@ -555,167 +469,6 @@ export default function UploadPage() {
           >
             {isSaving ? <><Loader2 className="animate-spin" size={24} /> SAVING...</> : 'SAVE RUN'}
           </button>
-        </div>
-      )}
-      {showGarminModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'var(--bg-card, #1c1c1e)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '16px',
-            padding: '24px',
-            maxWidth: '400px',
-            width: '100%',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#007CC3', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                GARMIN Connect Sync
-              </h3>
-              <button
-                onClick={() => setShowGarminModal(false)}
-                style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '1.2rem', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <p style={{ fontSize: '0.85rem', color: '#aaa', marginBottom: '20px', lineHeight: '1.4' }}>
-              Garmin Connect 계정 정보로 최신 러닝 기록을 가져옵니다. 계정 정보는 보관되지 않고 동기화 용도로만 일회성 사용됩니다.
-            </p>
-
-            <form onSubmit={handleGarminSync}>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '6px' }}>Garmin Email</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="your-email@example.com"
-                  value={garminEmail}
-                  onChange={(e) => setGarminEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    background: '#111',
-                    color: '#fff',
-                    fontSize: '0.95rem'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '6px' }}>Garmin Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={garminPassword}
-                  onChange={(e) => setGarminPassword(e.target.value)}
-                  disabled={requiresMfa}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    background: '#111',
-                    color: '#fff',
-                    fontSize: '0.95rem'
-                  }}
-                />
-              </div>
-
-              {requiresMfa && (
-                <div style={{ marginBottom: '20px', padding: '14px', background: 'rgba(0,124,195,0.1)', border: '1px solid #007CC3', borderRadius: '10px' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#007CC3', fontWeight: 600, marginBottom: '6px' }}>
-                    🔑 2차 인증(MFA) 6자리 코드
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="예: 123456"
-                    value={garminMfaCode}
-                    onChange={(e) => setGarminMfaCode(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid #007CC3',
-                      background: '#000',
-                      color: 'var(--volt, #d4ff00)',
-                      fontSize: '1.1rem',
-                      letterSpacing: '4px',
-                      fontWeight: 700,
-                      textAlign: 'center'
-                    }}
-                  />
-                  <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '6px' }}>
-                    이메일함에서 Garmin이 발송한 6자리 인증 코드를 확인해 입력해 주세요.
-                  </div>
-                </div>
-              )}
-
-              {garminSyncMessage && (
-                <div style={{
-                  marginBottom: '16px',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  textAlign: 'center',
-                  background: garminSyncMessage.includes('❌') ? 'rgba(255,68,68,0.1)' : 'rgba(212,255,0,0.1)',
-                  color: garminSyncMessage.includes('❌') ? '#ff4444' : 'var(--volt)'
-                }}>
-                  {garminSyncMessage}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowGarminModal(false)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    background: 'none',
-                    color: '#ccc',
-                    cursor: 'pointer'
-                  }}
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={isGarminSyncing}
-                  style={{
-                    flex: 2,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: '#007CC3',
-                    color: '#fff',
-                    fontWeight: 600,
-                    cursor: isGarminSyncing ? 'wait' : 'pointer',
-                    opacity: isGarminSyncing ? 0.7 : 1
-                  }}
-                >
-                  {isGarminSyncing ? '동기화 중...' : '동기화 시작'}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>
