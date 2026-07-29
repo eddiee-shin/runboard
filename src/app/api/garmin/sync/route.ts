@@ -31,8 +31,9 @@ export async function POST(request: Request) {
       await GC.login()
     } catch (loginErr: any) {
       console.error('Garmin login failed:', loginErr)
+      const detail = loginErr?.message || String(loginErr)
       return NextResponse.json(
-        { error: 'Garmin 로그인에 실패했습니다. 이메일과 비밀번호를 확인해 주세요.' },
+        { error: `Garmin 로그인 실패 (${detail}). 계정 정보 또는 2차 인증(2FA) 활성화 여부를 확인해 주세요.` },
         { status: 401 }
       )
     }
