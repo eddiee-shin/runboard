@@ -27,10 +27,18 @@ export async function POST(request: Request) {
       existing.push(...(data || []))
       if (!data || data.length < 500) break
     }
-    const signature = (date: string, distance: number, duration: number) => `${date}|${Number(distance).toFixed(2)}|${duration}`
-    const oldKeys = new Set(existing.filter(r => !r.import_key).map(r => signature(r.activity_date, r.distance_km, r.duration_sec)))
+    const oldRunsByDate = new Map<string, typeof existing>()
+    existing.filter(r => !r.import_key).forEach(r => {
+      oldRunsByDate.set(r.activity_date, [...(oldRunsByDate.get(r.activity_date) || []), r])
+    })
     const importedKeys = new Set(existing.map(r => r.import_key))
-    const fresh = parsed.runs.filter(r => !importedKeys.has(r.key) && !oldKeys.has(signature(r.date, r.distance, r.duration)))
+    const fresh = parsed.runs.filter(r => {
+      if (importedKeys.has(r.key)) return false
+      return !(oldRunsByDate.get(r.date) || []).some(old =>
+        Math.abs(Number(old.distance_km) - r.distance) <= 0.02 &&
+        Math.abs(Number(old.duration_sec) - r.duration) <= 2
+      )
+    })
     if (body.preview === true) return NextResponse.json({ fresh: fresh.map(r => r.key), existing: parsed.runs.length - fresh.length })
     if (body.preview !== false) throw new Error('잘못된 가져오기 요청입니다.')
     let imported = 0

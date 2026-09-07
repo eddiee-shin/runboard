@@ -21,8 +21,9 @@ Existing ownership RLS policies remain in effect. No service-role key is needed.
 - Missing optional heart rate/calories remain null. Invalid running rows block saving.
 - CSV source start timestamps identify imports; the unique per-user database key
   makes repeat/concurrent CSV requests idempotent. Separate runs on the same day survive.
-- Legacy records without import keys are excluded if date, rounded distance and
-  duration all match. This is a heuristic: other-source records with different
+- Legacy records without import keys are excluded if the date matches, distance
+  differs by at most 0.02 km, and duration differs by at most 2 seconds. This is
+  a heuristic: other-source records with larger
   durations require user review, and distinct legacy runs with identical values
   cannot be distinguished without their original activity timestamps.
 - Each save rechecks existing records. The bulk upsert is one database statement.
