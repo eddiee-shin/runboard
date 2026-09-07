@@ -15,16 +15,23 @@ export type GarminLinkActivity = {
   elevationGain: number | null
 }
 
-export function parseGarminActivityUrl(value: string): string {
+export function extractGarminActivityUrl(value: string): string | null {
+  const match = /https:\/\/connect\.garmin\.com\/(?:modern\/|app\/)?activity\/\d+(?:[/?#][^\s]*)?/i.exec(value)
+  if (!match) return null
+  const candidate = match[0].replace(/[),.;!?]+$/, '')
   let url: URL
-  try { url = new URL(value.trim()) }
-  catch { throw new Error('Garmin Connect 활동 링크를 확인해주세요.') }
-  if (url.protocol !== 'https:' || url.hostname !== 'connect.garmin.com') {
-    throw new Error('connect.garmin.com 활동 링크만 사용할 수 있습니다.')
-  }
-  const match = /^\/(?:modern\/|app\/)?activity\/(\d+)\/?$/.exec(url.pathname)
-  if (!match) throw new Error('Garmin Connect 활동 링크 형식을 확인해주세요.')
-  return match[1]
+  try { url = new URL(candidate) }
+  catch { return null }
+  if (url.protocol !== 'https:' || url.hostname !== 'connect.garmin.com') return null
+  const pathMatch = /^\/(?:modern\/|app\/)?activity\/(\d+)\/?$/.exec(url.pathname)
+  if (!pathMatch) return null
+  return `https://connect.garmin.com/modern/activity/${pathMatch[1]}`
+}
+
+export function parseGarminActivityUrl(value: string): string {
+  const extracted = extractGarminActivityUrl(value)
+  if (!extracted) throw new Error('Garmin Connect 활동 링크를 확인해주세요.')
+  return extracted.slice(extracted.lastIndexOf('/') + 1)
 }
 
 export function parseGarminEmbedHtml(html: string, expectedId: string): GarminLinkActivity {

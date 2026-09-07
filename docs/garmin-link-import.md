@@ -1,6 +1,9 @@
 # Garmin activity link import
 
 The upload page accepts public Garmin Connect activity URLs before the CSV tab.
+Text copied from the Garmin app may include a sentence and `#beatyesterday`;
+the client extracts and displays only the canonical activity URL, and the server
+performs the same extraction and validation independently.
 The server extracts the numeric activity ID, fetches Garmin's public embed page,
 and reads the embedded activity summary. Only HTTPS `connect.garmin.com` activity
 URLs and running activity types are accepted, so user input cannot select an

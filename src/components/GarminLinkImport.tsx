@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import type { GarminLinkActivity } from '@/lib/garmin-link'
+import { extractGarminActivityUrl } from '@/lib/garmin-link'
 
 const duration = (seconds: number) => {
   const h = Math.floor(seconds / 3600)
@@ -33,12 +34,16 @@ export default function GarminLinkImport() {
     finally { setBusy(false) }
   }
   return <section aria-label="Garmin 링크 가져오기">
-    <p>공개 범위가 <strong>모두</strong>인 Garmin Connect 활동 링크를 붙여넣으세요.</p>
+    <p>공개 범위가 <strong>모두</strong>인 Garmin Connect 활동 링크를 붙여넣으세요. 가민 앱에서 복사한 공유 문구 전체를 붙여넣어도 링크만 자동으로 추출합니다.</p>
     <div className="form-group">
       <label className="form-label" htmlFor="garmin-link">Garmin Connect 활동 링크</label>
       <input id="garmin-link" className="form-input" type="url"
         placeholder="https://connect.garmin.com/modern/activity/..." value={url} disabled={busy}
-        onChange={e => { setUrl(e.target.value); setActivity(null); setExisting(false); setSaved(false); setError('') }} />
+        onChange={e => {
+          const value = e.target.value
+          setUrl(extractGarminActivityUrl(value) || value)
+          setActivity(null); setExisting(false); setSaved(false); setError('')
+        }} />
     </div>
     {error && <p role="alert" style={{ color: '#ff7777' }}>{error}</p>}
     {!activity && <button className="action-btn" disabled={busy || !url.trim()} onClick={() => request(true)}>
