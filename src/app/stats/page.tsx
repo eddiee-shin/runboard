@@ -52,6 +52,12 @@ export default function StatsPage() {
     fetchStats()
   }, [filter, viewingDate])
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('filter') === 'Monthly') {
+      setFilter('Monthly')
+    }
+  }, [])
+
   const getMonthLabel = (date: Date) => {
     return date.toLocaleString('default', { month: 'short' })
   }

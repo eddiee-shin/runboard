@@ -86,6 +86,6 @@ export default function GarminCsvImport() {
         {busy ? '처리 중...' : fresh === null ? '기존 기록과 중복 확인' : `새 러닝 ${fresh.length}건 저장`}
       </button>
     </>}
-    {message && <p role="status">{message} {fresh?.length === 0 && <Link href="/stats">통계 보기</Link>}</p>}
+    {message && <p role="status">{message} {fresh?.length === 0 && <Link href="/stats?filter=Monthly">월간 통계 보기</Link>}</p>}
   </section>
 }
