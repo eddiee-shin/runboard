@@ -302,9 +302,6 @@ export default function UploadPage() {
       </div>
 
       <div className="upload-mode-toggle">
-        <button className={`mode-btn ${mode === 'csv' ? 'active' : ''}`} onClick={() => setMode('csv')}>
-          Garmin CSV
-        </button>
         <button 
           className={`mode-btn ${mode === 'photo' ? 'active' : ''}`}
           onClick={() => setMode('photo')}
@@ -317,9 +314,10 @@ export default function UploadPage() {
         >
           Manual
         </button>
+        <button className={`mode-btn ${mode === 'csv' ? 'active' : ''}`} onClick={() => setMode('csv')}>
+          Garmin CSV
+        </button>
       </div>
-
-      {mode === 'csv' && <GarminCsvImport />}
 
       {mode === 'photo' && (
         <div className="photo-mode-content">
@@ -477,6 +475,8 @@ export default function UploadPage() {
           </button>
         </div>
       )}
+
+      {mode === 'csv' && <GarminCsvImport />}
     </div>
   )
 }
