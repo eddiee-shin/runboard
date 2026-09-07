@@ -20,10 +20,11 @@ export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<UserRank[]>([])
   const [myProfileId, setMyProfileId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [viewingDate, setViewingDate] = useState(new Date())
 
   useEffect(() => {
     fetchLeaderboard()
-  }, [filter])
+  }, [filter, viewingDate])
 
   const fetchLeaderboard = async () => {
     setIsLoading(true)
@@ -34,7 +35,6 @@ export default function LeaderboardPage() {
 
     // 2. Fetch all verified run sessions with profile info
     // 3. Apply date filters
-    const now = new Date()
     const getLocalISODate = (d: Date) => {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
@@ -42,17 +42,21 @@ export default function LeaderboardPage() {
     let startDate: string | null = null
     let endDate: string | null = null
     if (filter === 'Today') {
-      startDate = getLocalISODate(now)
+      startDate = getLocalISODate(viewingDate)
       endDate = startDate
     } else if (filter === 'Weekly') {
-      const day = now.getDay()
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
-      const startOfWeek = new Date(now.setDate(diff))
+      const startOfWeek = new Date(viewingDate)
+      startOfWeek.setDate(viewingDate.getDate() - (viewingDate.getDay() === 0 ? 6 : viewingDate.getDay() - 1))
       startOfWeek.setHours(0,0,0,0)
       startDate = getLocalISODate(startOfWeek)
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
+      endDate = getLocalISODate(endOfWeek)
     } else if (filter === 'Monthly') {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const startOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
+      const endOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
       startDate = getLocalISODate(startOfMonth)
+      endDate = getLocalISODate(endOfMonth)
     }
     const runs: any[] = []
     for (let offset = 0; ; offset += 500) {
@@ -105,6 +109,41 @@ export default function LeaderboardPage() {
     return name.slice(0, 2).toUpperCase()
   }
 
+  const startOfWeek = (date: Date) => {
+    const start = new Date(date)
+    start.setDate(date.getDate() - (date.getDay() === 0 ? 6 : date.getDay() - 1))
+    start.setHours(0, 0, 0, 0)
+    return start
+  }
+
+  const isCurrentPeriod = (() => {
+    const now = new Date()
+    if (filter === 'Today') return viewingDate.toDateString() === now.toDateString()
+    if (filter === 'Weekly') return startOfWeek(viewingDate).toDateString() === startOfWeek(now).toDateString()
+    if (filter === 'Monthly') return viewingDate.getFullYear() === now.getFullYear() && viewingDate.getMonth() === now.getMonth()
+    return true
+  })()
+
+  const shiftPeriod = (amount: number) => {
+    const next = new Date(viewingDate)
+    if (filter === 'Today') next.setDate(next.getDate() + amount)
+    if (filter === 'Weekly') next.setDate(next.getDate() + amount * 7)
+    if (filter === 'Monthly') next.setMonth(next.getMonth() + amount, 1)
+    setViewingDate(next)
+  }
+
+  const periodLabel = (() => {
+    if (filter === 'Today') return viewingDate.toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' })
+    if (filter === 'Weekly') {
+      const start = startOfWeek(viewingDate)
+      const end = new Date(start)
+      end.setDate(start.getDate() + 6)
+      return `${start.toLocaleDateString('default', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('default', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    }
+    if (filter === 'Monthly') return viewingDate.toLocaleDateString('default', { month: 'long', year: 'numeric' })
+    return ''
+  })()
+
   return (
     <div className="content active">
       <div className="filter-chips">
@@ -112,12 +151,30 @@ export default function LeaderboardPage() {
           <div 
             key={f}
             className={`chip ${filter === f ? 'active' : ''}`}
-            onClick={() => setFilter(f as FilterType)}
+            onClick={() => { setFilter(f as FilterType); setViewingDate(new Date()) }}
           >
             {f}
           </div>
         ))}
       </div>
+
+      {filter !== 'All Time' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--surface-color)', border: '1px solid var(--border-color)',
+          borderRadius: '24px', padding: '8px 12px', marginBottom: '20px'
+        }}>
+          <button onClick={() => shiftPeriod(-1)} aria-label={`Previous ${filter.toLowerCase()}`}
+            style={{ background: 'none', border: 'none', color: 'var(--volt)', cursor: 'pointer', fontSize: '1.35rem', padding: '4px 12px' }}>
+            &larr;
+          </button>
+          <strong style={{ fontFamily: 'var(--font-barlow-condensed)', fontSize: '1.05rem', textTransform: 'uppercase' }}>{periodLabel}</strong>
+          <button onClick={() => shiftPeriod(1)} disabled={isCurrentPeriod} aria-label={`Next ${filter.toLowerCase()}`}
+            style={{ background: 'none', border: 'none', color: 'var(--volt)', cursor: isCurrentPeriod ? 'default' : 'pointer', opacity: isCurrentPeriod ? 0.25 : 1, fontSize: '1.35rem', padding: '4px 12px' }}>
+            &rarr;
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div style={{ textAlign: 'center', marginTop: '40px', color: 'var(--text-secondary)' }}>
