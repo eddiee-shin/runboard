@@ -58,10 +58,6 @@ export default function StatsPage() {
     }
   }, [])
 
-  const getMonthLabel = (date: Date) => {
-    return date.toLocaleString('default', { month: 'short' })
-  }
-
   const fetchStats = async () => {
     setIsLoading(true)
     
@@ -95,30 +91,39 @@ export default function StatsPage() {
     }
 
     const now = new Date()
-    const targetDate = filter === 'Monthly' ? viewingDate : now
-    
-    let query = supabase
-      .from('run_sessions')
-      .select('distance_km, duration_sec, pace_sec_per_km, avg_heart_rate, activity_date')
-      .eq('profile_id', user.id)
-      .eq('status', 'verified')
-
+    let startDate: string | null = null
+    let endDate: string | null = null
     if (filter === 'Today') {
       const todayStr = getLocalISODate(now)
-      query = query.eq('activity_date', todayStr)
+      startDate = todayStr
+      endDate = todayStr
     } else if (filter === 'Weekly') {
       const startOfWeek = new Date(now)
       startOfWeek.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1))
-      query = query.gte('activity_date', getLocalISODate(startOfWeek)).lte('activity_date', getLocalISODate(now))
+      startDate = getLocalISODate(startOfWeek)
+      endDate = getLocalISODate(now)
     } else if (filter === 'Monthly') {
       const startOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth(), 1)
       const endOfMonth = new Date(viewingDate.getFullYear(), viewingDate.getMonth() + 1, 0)
-      query = query.gte('activity_date', getLocalISODate(startOfMonth)).lte('activity_date', getLocalISODate(endOfMonth))
+      startDate = getLocalISODate(startOfMonth)
+      endDate = getLocalISODate(endOfMonth)
+    }
+    // Supabase projects commonly cap a response at 1,000 rows. Page through the
+    // complete range so All Time never becomes a partial total.
+    const runs: any[] = []
+    for (let offset = 0; ; offset += 500) {
+      let pageQuery = supabase.from('run_sessions')
+        .select('id, distance_km, duration_sec, pace_sec_per_km, avg_heart_rate, activity_date')
+        .eq('profile_id', user.id).eq('status', 'verified')
+      if (startDate) pageQuery = pageQuery.gte('activity_date', startDate)
+      if (endDate) pageQuery = pageQuery.lte('activity_date', endDate)
+      const { data, error } = await pageQuery.order('activity_date').order('id').range(offset, offset + 499)
+      if (error) { console.error('Error fetching stats', error); setIsLoading(false); return }
+      runs.push(...(data || []))
+      if (!data || data.length < 500) break
     }
 
-    const { data: runs } = await query
-
-    let fDist = 0, fRuns = 0, fDur = 0, totPaceSec = 0, paceCount = 0, totHr = 0, hrCount = 0
+    let fDist = 0, fRuns = 0, fDur = 0, pacedDistance = 0, pacedDuration = 0, totHr = 0, hrCount = 0
     const daysMap = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 0:0 }
 
     runs?.forEach((r: any) => {
@@ -126,8 +131,8 @@ export default function StatsPage() {
       fDist += dist
       fRuns++
       fDur += parseInt(r.duration_sec || 0)
-      const p = parseInt(r.pace_sec_per_km || 0)
-      if (p > 0) { totPaceSec += p; paceCount++ }
+      const duration = parseInt(r.duration_sec || 0)
+      if (duration > 0 && dist > 0) { pacedDuration += duration; pacedDistance += dist }
       const hr = parseInt(r.avg_heart_rate || 0)
       if (hr > 0) { totHr += hr; hrCount++ }
 
@@ -138,31 +143,22 @@ export default function StatsPage() {
     setFilteredDistance(fDist)
     setFilteredRuns(fRuns)
     setFilteredDuration(fDur)
-    setAvgPace(paceCount > 0 ? totPaceSec / paceCount : 0)
+    setAvgPace(pacedDistance > 0 ? pacedDuration / pacedDistance : 0)
     setAvgHeartRate(hrCount > 0 ? Math.round(totHr / hrCount) : 0)
 
     if (filter === 'All Time') {
-      // Monthly chart for last 6 months
+      // Show every month that contributes to the All Time total.
       const monthlyMap: Record<string, number> = {}
-      const monthLabels: string[] = []
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date()
-        d.setMonth(d.getMonth() - i)
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-        monthlyMap[key] = 0
-        monthLabels.push(getMonthLabel(d))
-      }
-
       runs?.forEach((r: any) => {
-        const rDate = new Date(r.activity_date)
-        const key = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`
-        if (monthlyMap[key] !== undefined) {
-          monthlyMap[key] += parseFloat(r.distance_km || 0)
-        }
+        const key = r.activity_date.slice(0, 7)
+        monthlyMap[key] = (monthlyMap[key] || 0) + parseFloat(r.distance_km || 0)
       })
 
       const keys = Object.keys(monthlyMap).sort()
-      setChartData(keys.map((k, i) => ({ label: monthLabels[i], val: monthlyMap[k] })))
+      setChartData(keys.map(k => {
+        const [year, month] = k.split('-').map(Number)
+        return { label: new Date(year, month - 1, 1).toLocaleString('default', { month: 'short', year: '2-digit' }), val: monthlyMap[k] }
+      }))
     } else {
       // Weekly chart
       setChartData([
@@ -191,15 +187,15 @@ export default function StatsPage() {
     }
 
     // 4. Fetch All Verified Runs for Calendar
-    const { data: allRuns } = await supabase
-      .from('run_sessions')
-      .select('activity_date')
-      .eq('profile_id', user.id)
-      .eq('status', 'verified')
-    
-    if (allRuns) {
-      setAllVerifiedRuns(allRuns)
+    const allRuns: { activity_date: string }[] = []
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.from('run_sessions').select('id, activity_date')
+        .eq('profile_id', user.id).eq('status', 'verified').order('id').range(offset, offset + 499)
+      if (error) { console.error('Error fetching run calendar', error); break }
+      allRuns.push(...(data || []))
+      if (!data || data.length < 500) break
     }
+    setAllVerifiedRuns(allRuns)
 
     setIsLoading(false)
   }
@@ -368,8 +364,9 @@ export default function StatsPage() {
 
           {filter !== 'Today' && filter !== 'Monthly' && (
             <div className="chart-section">
-              <h2 className="section-title" style={{ fontSize: '1.2rem' }}>{filter === 'All Time' ? 'Monthly Distance (Last 6m)' : 'Activity by Day of Week'}</h2>
-              <div className="chart-container">
+              <h2 className="section-title" style={{ fontSize: '1.2rem' }}>{filter === 'All Time' ? 'Monthly Distance (All Time)' : 'Activity by Day of Week'}</h2>
+              <div style={{ overflowX: filter === 'All Time' ? 'auto' : 'visible', paddingTop: '20px' }}>
+              <div className="chart-container" style={{ minWidth: filter === 'All Time' ? `${Math.max(420, chartData.length * 64)}px` : undefined }}>
                 {chartData.map((d, i) => {
                   const heightPct = Math.max(0, (d.val / maxVal) * 100)
                   const isActive = d.val > 0
@@ -398,6 +395,7 @@ export default function StatsPage() {
                     </div>
                   )
                 })}
+              </div>
               </div>
             </div>
           )}

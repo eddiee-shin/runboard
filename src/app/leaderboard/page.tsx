@@ -33,35 +33,42 @@ export default function LeaderboardPage() {
     if (user) setMyProfileId(user.id)
 
     // 2. Fetch all verified run sessions with profile info
-    let query = supabase.from('run_sessions')
-      .select('distance_km, activity_date, profiles(id, display_name, avatar_url)')
-      .eq('status', 'verified')
-
     // 3. Apply date filters
     const now = new Date()
     const getLocalISODate = (d: Date) => {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
 
+    let startDate: string | null = null
+    let endDate: string | null = null
     if (filter === 'Today') {
-      query = query.eq('activity_date', getLocalISODate(now))
+      startDate = getLocalISODate(now)
+      endDate = startDate
     } else if (filter === 'Weekly') {
       const day = now.getDay()
       const diff = now.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
       const startOfWeek = new Date(now.setDate(diff))
       startOfWeek.setHours(0,0,0,0)
-      query = query.gte('activity_date', getLocalISODate(startOfWeek))
+      startDate = getLocalISODate(startOfWeek)
     } else if (filter === 'Monthly') {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      query = query.gte('activity_date', getLocalISODate(startOfMonth))
+      startDate = getLocalISODate(startOfMonth)
     }
-
-    const { data: runs, error } = await query
-
-    if (error || !runs) {
-      console.error('Error fetching leaderboard', error)
-      setIsLoading(false)
-      return
+    const runs: any[] = []
+    for (let offset = 0; ; offset += 500) {
+      let pageQuery = supabase.from('run_sessions')
+        .select('id, distance_km, activity_date, profiles(id, display_name, avatar_url)')
+        .eq('status', 'verified')
+      if (startDate) pageQuery = pageQuery.gte('activity_date', startDate)
+      if (endDate) pageQuery = pageQuery.lte('activity_date', endDate)
+      const { data, error } = await pageQuery.order('activity_date').order('id').range(offset, offset + 499)
+      if (error) {
+        console.error('Error fetching leaderboard', error)
+        setIsLoading(false)
+        return
+      }
+      runs.push(...(data || []))
+      if (!data || data.length < 500) break
     }
 
     // 4. Aggregate data
