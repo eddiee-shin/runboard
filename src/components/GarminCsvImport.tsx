@@ -80,7 +80,7 @@ export default function GarminCsvImport() {
           </tr>)}</tbody>
         </table>
       </div>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem' }}>기존 수동·Strava 기록과 날짜, 거리, 운동 시간이 모두 같으면 제외합니다. 시간이 다르게 기록된 동일 운동은 직접 확인해주세요.</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem' }}>기존 기록과 날짜가 같고 거리 0.02km·시간 2초 이내 차이면 제외합니다.</p>
       <button className="action-btn" disabled={busy || !parsed.runs.length || !!parsed.errors.length || (fresh !== null && !fresh.length)}
         onClick={() => requestImport(fresh === null)}>
         {busy ? '처리 중...' : fresh === null ? '기존 기록과 중복 확인' : `새 러닝 ${fresh.length}건 저장`}

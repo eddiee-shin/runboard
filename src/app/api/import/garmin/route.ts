@@ -27,14 +27,14 @@ export async function POST(request: Request) {
       existing.push(...(data || []))
       if (!data || data.length < 500) break
     }
-    const oldRunsByDate = new Map<string, typeof existing>()
-    existing.filter(r => !r.import_key).forEach(r => {
-      oldRunsByDate.set(r.activity_date, [...(oldRunsByDate.get(r.activity_date) || []), r])
+    const runsByDate = new Map<string, typeof existing>()
+    existing.forEach(r => {
+      runsByDate.set(r.activity_date, [...(runsByDate.get(r.activity_date) || []), r])
     })
     const importedKeys = new Set(existing.map(r => r.import_key))
     const fresh = parsed.runs.filter(r => {
       if (importedKeys.has(r.key)) return false
-      return !(oldRunsByDate.get(r.date) || []).some(old =>
+      return !(runsByDate.get(r.date) || []).some(old =>
         Math.abs(Number(old.distance_km) - r.distance) <= 0.02 &&
         Math.abs(Number(old.duration_sec) - r.duration) <= 2
       )

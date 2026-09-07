@@ -5,6 +5,7 @@ import { Upload, X, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import GarminCsvImport from '@/components/GarminCsvImport'
+import GarminLinkImport from '@/components/GarminLinkImport'
 
 // Helper: Format seconds to HH:MM:SS
 const formatDuration = (sec: number) => {
@@ -56,7 +57,7 @@ export default function UploadPage() {
   const router = useRouter()
   const supabase = createClient()
   
-  const [mode, setMode] = useState<'photo' | 'manual' | 'csv'>('photo')
+  const [mode, setMode] = useState<'photo' | 'manual' | 'garmin-link' | 'csv'>('photo')
   const [appSource, setAppSource] = useState('nike')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -314,6 +315,9 @@ export default function UploadPage() {
         >
           Manual
         </button>
+        <button className={`mode-btn ${mode === 'garmin-link' ? 'active' : ''}`} onClick={() => setMode('garmin-link')}>
+          Garmin Link
+        </button>
         <button className={`mode-btn ${mode === 'csv' ? 'active' : ''}`} onClick={() => setMode('csv')}>
           Garmin CSV
         </button>
@@ -476,6 +480,7 @@ export default function UploadPage() {
         </div>
       )}
 
+      {mode === 'garmin-link' && <GarminLinkImport />}
       {mode === 'csv' && <GarminCsvImport />}
     </div>
   )
