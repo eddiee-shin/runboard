@@ -43,6 +43,64 @@ function number(value: string): number | null {
   return Number(value.replace(/,/g, ''))
 }
 
+export function parseStartedAt(raw: string): { startedAt: string; date: string } {
+  const trimmed = raw.trim()
+  let y = '', m = '', d = '', h = '00', min = '00', s = '00'
+
+  const ymd = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(trimmed)
+  if (ymd) {
+    y = ymd[1]
+    m = ymd[2].padStart(2, '0')
+    d = ymd[3].padStart(2, '0')
+    if (ymd[4] !== undefined) h = ymd[4].padStart(2, '0')
+    if (ymd[5] !== undefined) min = ymd[5].padStart(2, '0')
+    if (ymd[6] !== undefined) s = ymd[6].padStart(2, '0')
+  } else {
+    const dmy = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(trimmed)
+    if (dmy) {
+      d = dmy[1].padStart(2, '0')
+      m = dmy[2].padStart(2, '0')
+      y = dmy[3]
+      if (dmy[4] !== undefined) h = dmy[4].padStart(2, '0')
+      if (dmy[5] !== undefined) min = dmy[5].padStart(2, '0')
+      if (dmy[6] !== undefined) s = dmy[6].padStart(2, '0')
+    } else {
+      throw new Error('날짜/시간 형식을 확인해주세요.')
+    }
+  }
+
+  const hNum = Number(h), minNum = Number(min), sNum = Number(s)
+  if (hNum > 23 || minNum > 59 || sNum > 59) throw new Error('유효하지 않은 시간입니다.')
+
+  const iso = `${y}-${m}-${d}T${h}:${min}:${s}`
+  const dateObj = new Date(`${iso}Z`)
+  if (!Number.isFinite(dateObj.getTime()) || dateObj.toISOString().slice(0, 19) !== iso) {
+    throw new Error('유효하지 않은 날짜입니다.')
+  }
+
+  return {
+    startedAt: `${y}-${m}-${d} ${h}:${min}:${s}`,
+    date: `${y}-${m}-${d}`,
+  }
+}
+
+export function parseDuration(raw: string): number {
+  const trimmed = raw.trim()
+  const hms = /^(\d+):([0-5]\d):([0-5]\d(?:\.\d+)?)$/.exec(trimmed)
+  if (hms) {
+    const duration = Math.round(Number(hms[1]) * 3600 + Number(hms[2]) * 60 + Number(hms[3]))
+    if (duration <= 0 || duration > 2147483647) throw new Error('운동 시간을 확인해주세요.')
+    return duration
+  }
+  const ms = /^([0-5]?\d):([0-5]\d(?:\.\d+)?)$/.exec(trimmed)
+  if (ms) {
+    const duration = Math.round(Number(ms[1]) * 60 + Number(ms[2]))
+    if (duration <= 0 || duration > 2147483647) throw new Error('운동 시간을 확인해주세요.')
+    return duration
+  }
+  throw new Error('운동 시간은 HH:MM:SS 또는 MM:SS 형식이어야 합니다.')
+}
+
 export function parseGarminCsv(text: string, unit: DistanceUnit) {
   if (unit !== 'km' && unit !== 'mi') throw new Error('거리 단위를 선택해주세요.')
   if (new TextEncoder().encode(text).length > 2 * 1024 * 1024) throw new Error('CSV는 2MB 이하로 올려주세요.')
@@ -60,18 +118,12 @@ export function parseGarminCsv(text: string, unit: DistanceUnit) {
       if (row.length !== header.length) throw new Error('열 개수가 일치하지 않습니다.')
       const get = (name: string) => (row[header.indexOf(name)] || '').trim()
       if (!['Running', 'Trail Running', 'Treadmill Running', 'Indoor Running', 'Track Running', 'Ultra Running', 'Virtual Running'].includes(get('Activity Type'))) { skipped++; return }
-      const startedAt = get('Date')
-      if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(startedAt)) throw new Error('날짜/시간 형식을 확인해주세요.')
-      const date = new Date(startedAt.replace(' ', 'T') + 'Z')
-      if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 19) !== startedAt.replace(' ', 'T')) throw new Error('유효하지 않은 날짜입니다.')
+      const { startedAt, date } = parseStartedAt(get('Date'))
       const rawDistance = number(get('Distance'))
       if (!rawDistance || rawDistance <= 0) throw new Error('거리는 0보다 커야 합니다.')
       const distance = Math.round(rawDistance * (unit === 'mi' ? 1.609344 : 1) * 100) / 100
       if (!distance || distance >= 100000000) throw new Error('거리가 저장 범위를 벗어납니다.')
-      const time = /^(\d+):([0-5]\d):([0-5]\d(?:\.\d+)?)$/.exec(get('Time'))
-      if (!time) throw new Error('운동 시간은 HH:MM:SS 형식이어야 합니다.')
-      const duration = Math.round(Number(time[1]) * 3600 + Number(time[2]) * 60 + Number(time[3]))
-      if (duration <= 0 || duration > 2147483647) throw new Error('운동 시간을 확인해주세요.')
+      const duration = parseDuration(get('Time'))
       const optional = (name: string) => {
         const value = number(get(name))
         if (value !== null && value > 2147483647) throw new Error(`${name} 값이 너무 큽니다.`)
@@ -81,7 +133,7 @@ export function parseGarminCsv(text: string, unit: DistanceUnit) {
       if (seen.has(key)) { duplicates++; return }
       const pace = Math.round(duration / distance)
       if (pace > 2147483647) throw new Error('거리와 운동 시간을 확인해주세요.')
-      runs.push({ key, startedAt, date: startedAt.slice(0, 10), distance, duration, pace, calories: optional('Calories'), heartRate: optional('Avg HR') })
+      runs.push({ key, startedAt, date, distance, duration, pace, calories: optional('Calories'), heartRate: optional('Avg HR') })
       seen.add(key)
     } catch (error) { errors.push(`${i + 2}행: ${error instanceof Error ? error.message : '잘못된 기록입니다.'}`) }
   })

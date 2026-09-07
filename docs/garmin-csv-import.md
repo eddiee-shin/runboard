@@ -15,8 +15,8 @@ Existing ownership RLS policies remain in effect. No service-role key is needed.
 
 - Maximum 2 MiB and 5,000 source records. Walking and other non-running types are excluded.
 - English Garmin headers are supported; this is not a Strava CSV importer.
-- Uses Date as a local wall-clock date without shifting through browser timezone.
-- Uses Time (timer duration), not Elapsed Time or Moving Time. Pace is calculated
+- Supports both `YYYY-MM-DD` and `DD/MM/YYYY` date/time formats (with optional seconds), normalized to ISO dates without shifting through browser timezone.
+- Supports both `HH:MM:SS` and `MM:SS` for Time (timer duration), not Elapsed Time or Moving Time. Pace is calculated
   from converted distance and timer duration. Miles convert to km and round to 2 decimals.
 - Missing optional heart rate/calories remain null. Invalid running rows block saving.
 - CSV source start timestamps identify imports; the unique per-user database key

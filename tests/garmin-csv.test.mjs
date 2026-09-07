@@ -34,3 +34,24 @@ test('invalid dates, times, negative distances and malformed CSV fail', () => {
 test('quoted multiline fields and escaped quotes', () => {
   assert.deepEqual(readCsv('a,b\r\n"line\nnext","a""b"'), [['a', 'b'], ['line\nnext', 'a"b']])
 })
+test('DD/MM/YYYY dates and MM:SS duration formats parse and normalize', () => {
+  const dmyRun = 'Running,05/09/2026 06:46:17,10.00,45:30,"500",150,"Tempo run"'
+  const result = parseGarminCsv(header + dmyRun, 'km')
+  assert.equal(result.errors.length, 0)
+  assert.equal(result.runs[0].date, '2026-09-05')
+  assert.equal(result.runs[0].startedAt, '2026-09-05 06:46:17')
+  assert.equal(result.runs[0].duration, 2730) // 45*60 + 30
+  assert.equal(result.runs[0].pace, 273)
+
+  // With DD/MM/YYYY HH:MM (no seconds)
+  const noSecRun = 'Running,05/09/2026 06:46,5.00,25:00,"250",140,"Easy run"'
+  const result2 = parseGarminCsv(header + noSecRun, 'km')
+  assert.equal(result2.runs[0].startedAt, '2026-09-05 06:46:00')
+  assert.equal(result2.runs[0].duration, 1500)
+
+  // Invalid DD/MM/YYYY date
+  const invalidDmy = 'Running,31/02/2026 06:46:17,10.00,45:30,"500",150,"Run"'
+  const result3 = parseGarminCsv(header + invalidDmy, 'km')
+  assert.equal(result3.errors.length, 1)
+})
+
