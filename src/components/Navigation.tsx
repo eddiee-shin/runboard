@@ -26,6 +26,12 @@ export default function Navigation() {
       >
         Stats
       </Link>
+      <Link
+        href="/runs"
+        className={`tab-btn ${pathname === '/runs' ? 'active' : ''}`}
+      >
+        My Runs
+      </Link>
     </div>
   );
 }

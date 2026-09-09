@@ -103,6 +103,13 @@ export default function LeaderboardPage() {
   }
 
   const myRankData = leaderboard.find(u => u.profileId === myProfileId)
+  const challenge = filter === 'Weekly'
+    ? { title: '3 Run Week', target: 3, unit: 'runs', value: (user: UserRank) => user.totalRuns }
+    : filter === 'Monthly'
+      ? { title: '100K Month', target: 100, unit: 'km', value: (user: UserRank) => user.totalDistance }
+      : null
+  const myChallengeValue = challenge && myRankData ? challenge.value(myRankData) : 0
+  const challengeFinishers = challenge ? leaderboard.filter(user => challenge.value(user) >= challenge.target).length : 0
 
   // Helper to get initials
   const getInitials = (name: string) => {
@@ -200,6 +207,17 @@ export default function LeaderboardPage() {
               {leaderboard.reduce((sum, user) => sum + user.totalDistance, 0).toFixed(1)} <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400 }}>km</span>
             </div>
           </div>
+
+          {challenge && (
+            <section className="challenge-card" aria-label={`${challenge.title} challenge`}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                <div><div className="stat-label">Crew Challenge</div><strong style={{ fontSize: '1.25rem' }}>{challenge.title}</strong></div>
+                <div style={{ textAlign: 'right' }}><div className="comparison-value trend-up">{challengeFinishers}</div><div className="muted">finishers</div></div>
+              </div>
+              <div className="challenge-progress"><div style={{ width: `${Math.min(100, (myChallengeValue / challenge.target) * 100)}%` }} /></div>
+              <div className="muted">My progress: {challenge.unit === 'km' ? myChallengeValue.toFixed(1) : myChallengeValue} / {challenge.target} {challenge.unit}</div>
+            </section>
+          )}
 
           {/* My Rank */}
           {myRankData && (

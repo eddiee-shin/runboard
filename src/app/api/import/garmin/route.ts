@@ -54,6 +54,21 @@ export async function POST(request: Request) {
       }
       imported = data?.length || 0
     }
+    const { error: reportError } = await supabase.from('import_reports').insert({
+      profile_id: user.id,
+      source: 'garmin_csv',
+      label: typeof body.filename === 'string' ? body.filename.slice(0, 180) : 'Garmin Activities.csv',
+      total_count: parsed.runs.length + parsed.skipped + parsed.duplicates,
+      imported_count: imported,
+      duplicate_count: parsed.runs.length - imported + parsed.duplicates,
+      skipped_count: parsed.skipped,
+      error_count: parsed.errors.length,
+      details: {
+        unit: body.unit,
+        eligible_distance_km: Number(fresh.reduce((sum, run) => sum + run.distance, 0).toFixed(2)),
+      },
+    })
+    if (reportError) console.error('CSV import report save failed:', reportError)
     return NextResponse.json({ imported, existing: parsed.runs.length - imported })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'CSV를 읽지 못했습니다.' }, { status: 400 })

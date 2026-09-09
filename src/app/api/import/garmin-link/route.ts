@@ -28,7 +28,15 @@ export async function POST(request: Request) {
       )
     )
     if (body.preview) return NextResponse.json({ activity, existing: duplicate })
-    if (duplicate) return NextResponse.json({ imported: 0, existing: 1 })
+    if (duplicate) {
+      const { error: reportError } = await supabase.from('import_reports').insert({
+        profile_id: user.id, source: 'garmin_link', label: activity.name,
+        total_count: 1, imported_count: 0, duplicate_count: 1,
+        details: { activity_date: activity.date, distance_km: activity.distance },
+      })
+      if (reportError) console.error('Garmin link report save failed:', reportError)
+      return NextResponse.json({ imported: 0, existing: 1 })
+    }
     const { data, error } = await supabase.from('run_sessions').upsert({
       profile_id: user.id,
       source_app_id: 2,
@@ -46,7 +54,14 @@ export async function POST(request: Request) {
       import_key: activity.key,
     }, { onConflict: 'profile_id,import_key', ignoreDuplicates: true }).select('id')
     if (error) throw new Error('Garmin 활동을 저장하지 못했습니다.')
-    return NextResponse.json({ imported: data?.length || 0, existing: data?.length ? 0 : 1 })
+    const imported = data?.length || 0
+    const { error: reportError } = await supabase.from('import_reports').insert({
+      profile_id: user.id, source: 'garmin_link', label: activity.name,
+      total_count: 1, imported_count: imported, duplicate_count: imported ? 0 : 1,
+      details: { activity_date: activity.date, distance_km: activity.distance },
+    })
+    if (reportError) console.error('Garmin link report save failed:', reportError)
+    return NextResponse.json({ imported, existing: imported ? 0 : 1 })
   } catch (error) {
     const message = error instanceof Error && error.name === 'TimeoutError'
       ? 'Garmin 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.'

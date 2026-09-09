@@ -24,7 +24,7 @@ export default function GarminCsvImport() {
     try {
       const res = await fetch('/api/import/garmin', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csv, unit, preview }),
+        body: JSON.stringify({ csv, unit, preview, filename }),
       })
       if (res.redirected) throw new Error('로그인이 만료되었습니다. 다시 로그인해주세요.')
       const result = await res.json()
@@ -86,6 +86,6 @@ export default function GarminCsvImport() {
         {busy ? '처리 중...' : fresh === null ? '기존 기록과 중복 확인' : `새 러닝 ${fresh.length}건 저장`}
       </button>
     </>}
-    {message && <p role="status">{message} {fresh?.length === 0 && <Link href="/stats?filter=Monthly">월간 통계 보기</Link>}</p>}
+    {message && <p role="status">{message} {fresh?.length === 0 && <>· <Link href="/stats?filter=Monthly">월간 통계</Link> · <Link href="/runs">가져오기 보고서</Link></>}</p>}
   </section>
 }

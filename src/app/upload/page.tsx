@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Upload, X, Loader2 } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import GarminCsvImport from '@/components/GarminCsvImport'
@@ -295,6 +296,7 @@ export default function UploadPage() {
             {syncMessage && (
               <div style={{ marginTop: '6px', fontSize: '0.85rem', textAlign: 'center', color: syncMessage.includes('❌') ? '#ff4444' : 'var(--volt)' }}>
                 {syncMessage}
+                {!syncMessage.includes('❌') && <> · <Link href="/runs">Report</Link></>}
               </div>
             )}
           </div>

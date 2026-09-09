@@ -105,13 +105,18 @@ export async function POST() {
     })
 
     // 5. Get existing sessions for this user to avoid duplicates
-    const { data: existingSessions } = await supabase
-      .from('run_sessions')
-      .select('activity_date, distance_km')
-      .eq('profile_id', user.id)
+    const existingSessions: { activity_date: string; distance_km: number }[] = []
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.from('run_sessions')
+        .select('id, activity_date, distance_km').eq('profile_id', user.id)
+        .order('id').range(offset, offset + 499)
+      if (error) throw new Error('기존 러닝 기록을 확인하지 못했습니다.')
+      existingSessions.push(...(data || []))
+      if (!data || data.length < 500) break
+    }
 
     const existingKeys = new Set(
-      (existingSessions || []).map((s: any) => `${s.activity_date}_${parseFloat(s.distance_km || 0).toFixed(2)}`)
+      existingSessions.map((s: any) => `${s.activity_date}_${parseFloat(s.distance_km || 0).toFixed(2)}`)
     )
 
     // 6. Insert new runs
@@ -159,6 +164,18 @@ export async function POST() {
     } else {
       resultMsg = '최근 90일 동안 Strava에 등록된 활동이 없습니다.'
     }
+
+    const { error: reportError } = await supabase.from('import_reports').insert({
+      profile_id: user.id,
+      source: 'strava',
+      label: 'Recent 90 days',
+      total_count: activities.length,
+      imported_count: importedCount,
+      duplicate_count: Math.max(0, runs.length - importedCount),
+      skipped_count: Math.max(0, activities.length - runs.length),
+      details: { eligible_runs: runs.length },
+    })
+    if (reportError) console.error('Strava sync report save failed:', reportError)
 
     return NextResponse.json({ 
       success: true, 

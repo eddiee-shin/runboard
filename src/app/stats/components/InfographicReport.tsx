@@ -15,6 +15,9 @@ interface InfographicProps {
     quality?: { good: number; normal: number }
     maxStreak?: number
     totalCalories?: number
+    crewRank?: number | null
+    crewSize?: number
+    goalPercent?: number
   }
 }
 
@@ -92,6 +95,9 @@ export default function InfographicReport({ data }: InfographicProps) {
         <p style={{ fontSize: '11px', color: '#AAA', marginTop: '10px', fontWeight: 700, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Zap size={12} color="var(--volt)" fill="var(--volt)" /> RUNBOARD CREW • {data.displayName}
         </p>
+        {(data.crewRank || data.goalPercent !== undefined) && <p style={{ fontSize: '11px', color: '#FFF', marginTop: '8px', fontWeight: 800 }}>
+          {data.crewRank ? `MONTHLY RANK #${data.crewRank} / ${data.crewSize}` : 'MONTHLY RANK —'} · GOAL {data.goalPercent || 0}%
+        </p>}
       </header>
 
       <div style={{ padding: '0 25px', position: 'relative', zIndex: 1 }}>

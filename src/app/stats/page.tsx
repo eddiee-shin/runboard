@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import html2canvas from 'html2canvas'
 import InfographicReport from './components/InfographicReport'
 
 // Helper: Format seconds per km to M'SS"
@@ -47,6 +46,10 @@ export default function StatsPage() {
   const [weeklyGoal, setWeeklyGoal] = useState(40) // Default 40
   const [monthlyGoal, setMonthlyGoal] = useState(150) // Default 150
   const [viewingDate, setViewingDate] = useState(new Date())
+  const [comparison, setComparison] = useState<{ distance: number; runs: number; label: string } | null>(null)
+  const [editingGoal, setEditingGoal] = useState(false)
+  const [goalDraft, setGoalDraft] = useState('')
+  const [goalMessage, setGoalMessage] = useState('')
 
   useEffect(() => {
     fetchStats()
@@ -80,8 +83,8 @@ export default function StatsPage() {
 
     if (goals) {
       goals.forEach((g: any) => {
-        if (g.goal_type === 'weekly_distance_km') setWeeklyGoal(g.goal_value)
-        if (g.goal_type === 'monthly_distance_km') setMonthlyGoal(g.goal_value)
+        if (g.goal_type === 'weekly_distance_km') setWeeklyGoal(Number(g.goal_value))
+        if (g.goal_type === 'monthly_distance_km') setMonthlyGoal(Number(g.goal_value))
       })
     }
 
@@ -145,6 +148,33 @@ export default function StatsPage() {
     setFilteredDuration(fDur)
     setAvgPace(pacedDistance > 0 ? pacedDuration / pacedDistance : 0)
     setAvgHeartRate(hrCount > 0 ? Math.round(totHr / hrCount) : 0)
+
+    if (filter === 'Monthly') {
+      const previousStart = new Date(viewingDate.getFullYear(), viewingDate.getMonth() - 1, 1)
+      const selectedIsCurrent = viewingDate.getFullYear() === now.getFullYear() && viewingDate.getMonth() === now.getMonth()
+      const previousLastDay = new Date(previousStart.getFullYear(), previousStart.getMonth() + 1, 0).getDate()
+      const throughDay = selectedIsCurrent ? Math.min(now.getDate(), previousLastDay) : previousLastDay
+      const previousEnd = new Date(previousStart.getFullYear(), previousStart.getMonth(), throughDay)
+      const previousRuns: { distance_km: number }[] = []
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await supabase.from('run_sessions').select('id, distance_km')
+          .eq('profile_id', user.id).eq('status', 'verified')
+          .gte('activity_date', getLocalISODate(previousStart)).lte('activity_date', getLocalISODate(previousEnd))
+          .order('id').range(offset, offset + 499)
+        if (error) break
+        previousRuns.push(...(data || []))
+        if (!data || data.length < 500) break
+      }
+      setComparison({
+        distance: previousRuns.reduce((sum, run) => sum + Number(run.distance_km || 0), 0),
+        runs: previousRuns.length,
+        label: selectedIsCurrent
+          ? `${previousStart.toLocaleString('default', { month: 'short' })} 1–${throughDay}`
+          : previousStart.toLocaleString('default', { month: 'long', year: 'numeric' }),
+      })
+    } else {
+      setComparison(null)
+    }
 
     if (filter === 'All Time') {
       // Show every month that contributes to the All Time total.
@@ -218,21 +248,23 @@ export default function StatsPage() {
     const dailyMap: Record<number, number> = {}
     for (let i = 1; i <= daysInMonth; i++) dailyMap[i] = 0
     
-    const { data: thisMonthRuns } = await supabase
-      .from('run_sessions')
-      .select('*')
-      .eq('profile_id', user.id)
-      .eq('status', 'verified')
-      .gte('activity_date', getLocalISODate(startOfMonth))
-      .lte('activity_date', getLocalISODate(endOfMonth))
+    const thisMonthRuns: any[] = []
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.from('run_sessions').select('*')
+        .eq('profile_id', user.id).eq('status', 'verified')
+        .gte('activity_date', getLocalISODate(startOfMonth)).lte('activity_date', getLocalISODate(endOfMonth))
+        .order('id').range(offset, offset + 499)
+      if (error) break
+      thisMonthRuns.push(...(data || []))
+      if (!data || data.length < 500) break
+    }
 
-    let mDist = 0, mRuns = 0, mDur = 0, mPaceTot = 0, mPaceCount = 0, mHrTot = 0, mHrCount = 0, mCal = 0
+    let mDist = 0, mRuns = 0, mDur = 0, mPacedDuration = 0, mPacedDistance = 0, mHrTot = 0, mHrCount = 0, mCal = 0
     let bestR: any = null
     const dowMap: Record<number, number> = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 }
     let qualityGood = 0, qualityNormal = 0
 
-    if (thisMonthRuns) {
-      thisMonthRuns.forEach((r: any) => {
+    thisMonthRuns.forEach((r: any) => {
         const parts = r.activity_date.split('-')
         const runD = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
         const d = runD.getDate()
@@ -246,14 +278,13 @@ export default function StatsPage() {
         mDur += parseInt(r.duration_sec || 0)
         mCal += parseInt(r.calories || 0)
         const p = parseInt(r.pace_sec_per_km || 0)
-        if (p > 0) { mPaceTot += p; mPaceCount++ }
+        if (p > 0 && dist > 0) { mPacedDuration += parseInt(r.duration_sec || 0); mPacedDistance += dist }
         const hr = parseInt(r.avg_heart_rate || 0)
         if (hr > 0) { mHrTot += hr; mHrCount++ }
         if (!bestR || dist > parseFloat(bestR.distance_km)) bestR = r
         if (p > 0 && p <= 360) qualityGood++
         else qualityNormal++
-      })
-    }
+    })
 
 
     let maxStrk = 0, currStrk = 0
@@ -262,13 +293,26 @@ export default function StatsPage() {
       else currStrk = 0
     }
 
+    const crewRuns: { profile_id: string; distance_km: number }[] = []
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.from('run_sessions').select('id, profile_id, distance_km')
+        .eq('status', 'verified').gte('activity_date', getLocalISODate(startOfMonth)).lte('activity_date', getLocalISODate(endOfMonth))
+        .order('id').range(offset, offset + 499)
+      if (error) break
+      crewRuns.push(...(data || []))
+      if (!data || data.length < 500) break
+    }
+    const crewTotals = new Map<string, number>()
+    crewRuns.forEach(run => crewTotals.set(run.profile_id, (crewTotals.get(run.profile_id) || 0) + Number(run.distance_km || 0)))
+    const rankedIds = Array.from(crewTotals.entries()).sort((a, b) => b[1] - a[1]).map(entry => entry[0])
+
     setReportData({
       month: viewingDate.toLocaleString('default', { month: 'long', year: 'numeric' }),
       totalDistance: mDist,
       totalRuns: mRuns,
       totalDurationSec: mDur,
       totalCalories: mCal,
-      avgPace: mPaceCount > 0 ? mPaceTot / mPaceCount : 0,
+      avgPace: mPacedDistance > 0 ? mPacedDuration / mPacedDistance : 0,
       avgHeartRate: mHrCount > 0 ? Math.round(mHrTot / mHrCount) : 0,
       dailyDistances: Object.keys(dailyMap).sort((a,b) => parseInt(a) - parseInt(b)).map(d => ({ 
         day: parseInt(d), 
@@ -278,23 +322,62 @@ export default function StatsPage() {
       displayName: profile?.display_name || 'Runner',
       dowData: [dowMap[1], dowMap[2], dowMap[3], dowMap[4], dowMap[5], dowMap[6], dowMap[0]], 
       quality: { good: qualityGood, normal: qualityNormal },
-      maxStreak: maxStrk
+      maxStreak: maxStrk,
+      crewRank: rankedIds.indexOf(user.id) >= 0 ? rankedIds.indexOf(user.id) + 1 : null,
+      crewSize: rankedIds.length,
+      goalPercent: monthlyGoal > 0 ? Math.round((mDist / monthlyGoal) * 100) : 0,
     })
     
     setIsLoading(false)
     setShowInfographic(true)
   }
 
-  const handleDownload = async () => {
+  const renderReport = async () => {
     if (!reportRef.current) return
-    const canvas = await html2canvas(reportRef.current, {
+    const { default: html2canvas } = await import('html2canvas')
+    return html2canvas(reportRef.current, {
       scale: 2, // Higher quality
       backgroundColor: '#F9F9F4'
     })
+  }
+
+  const handleDownload = async () => {
+    const canvas = await renderReport()
+    if (!canvas) return
     const link = document.createElement('a')
     link.download = `RunBoard_Report_${reportData?.month}.png`
     link.href = canvas.toDataURL('image/png')
     link.click()
+  }
+
+  const handleShare = async () => {
+    const canvas = await renderReport()
+    if (!canvas) return
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+    if (!blob) return
+    const file = new File([blob], `RunBoard_${reportData?.month}.png`, { type: 'image/png' })
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ title: `${reportData?.month} RunBoard Report`, files: [file] }) }
+      catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) throw error }
+    } else {
+      await handleDownload()
+    }
+  }
+
+  const saveGoal = async () => {
+    const value = Number(goalDraft)
+    if (!Number.isFinite(value) || value <= 0 || value > 2000) { setGoalMessage('1~2,000km 사이로 입력해주세요.'); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const goalType = isMonthly ? 'monthly_distance_km' : 'weekly_distance_km'
+    const { error } = await supabase.from('running_goals').upsert({
+      profile_id: user.id, goal_type: goalType, goal_value: value,
+      unit: 'km', period: isMonthly ? 'monthly' : 'weekly', is_active: true,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'profile_id,goal_type' })
+    if (error) { setGoalMessage('목표를 저장하지 못했습니다.'); return }
+    if (isMonthly) setMonthlyGoal(value); else setWeeklyGoal(value)
+    setEditingGoal(false); setGoalMessage('목표를 저장했습니다.')
   }
 
   const handleDeleteRun = async (id: string) => {
@@ -316,6 +399,12 @@ export default function StatsPage() {
   const isMonthly = filter === 'Monthly'
   const currentGoal = isMonthly ? monthlyGoal : weeklyGoal
   const currentProgress = Math.min(100, Math.round((filteredDistance / currentGoal) * 100)) || 0
+  const comparisonDistancePct = comparison?.distance
+    ? Math.round(((filteredDistance - comparison.distance) / comparison.distance) * 100)
+    : null
+  const comparisonRunPct = comparison?.runs
+    ? Math.round(((filteredRuns - comparison.runs) / comparison.runs) * 100)
+    : null
 
   const maxVal = Math.max(...chartData.map(d => d.val), 10)
 
@@ -362,6 +451,16 @@ export default function StatsPage() {
             </div>
           </div>
 
+          {filter === 'Monthly' && comparison && (
+            <div className="comparison-card">
+              <div className="stat-label">Compared with {comparison.label}</div>
+              <div className="comparison-grid">
+                <div><div className="muted">Distance</div><div className={`comparison-value ${(comparisonDistancePct || 0) >= 0 ? 'trend-up' : 'trend-down'}`}>{comparisonDistancePct === null ? 'New' : `${comparisonDistancePct >= 0 ? '+' : ''}${comparisonDistancePct}%`}</div><div className="muted">previous {comparison.distance.toFixed(1)} km</div></div>
+                <div><div className="muted">Runs</div><div className={`comparison-value ${(comparisonRunPct || 0) >= 0 ? 'trend-up' : 'trend-down'}`}>{comparisonRunPct === null ? 'New' : `${comparisonRunPct >= 0 ? '+' : ''}${comparisonRunPct}%`}</div><div className="muted">previous {comparison.runs} runs</div></div>
+              </div>
+            </div>
+          )}
+
           {filter !== 'Today' && filter !== 'Monthly' && (
             <div className="chart-section">
               <h2 className="section-title" style={{ fontSize: '1.2rem' }}>{filter === 'All Time' ? 'Monthly Distance (All Time)' : 'Activity by Day of Week'}</h2>
@@ -406,11 +505,13 @@ export default function StatsPage() {
               <div style={{ background: 'var(--surface-color)', padding: '20px', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                   <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{filter} {currentGoal}km Goal</span>
-                  <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontStyle: 'italic', color: 'var(--volt)' }}>{currentProgress}%</span>
+                  <span><button className="inline-action" onClick={() => { setGoalDraft(String(currentGoal)); setEditingGoal(true); setGoalMessage('') }}>Edit goal</button> <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontStyle: 'italic', color: 'var(--volt)', marginLeft: '8px' }}>{currentProgress}%</span></span>
                 </div>
                 <div style={{ height: '8px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${currentProgress}%`, background: 'var(--volt)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
                 </div>
+                {editingGoal && <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}><input className="form-input" type="number" min="1" max="2000" step="1" value={goalDraft} onChange={event => setGoalDraft(event.target.value)} style={{ padding: '10px' }} /><button onClick={saveGoal} style={{ background: 'var(--volt)', border: 0, borderRadius: '10px', padding: '0 16px', fontWeight: 800, cursor: 'pointer' }}>Save</button></div>}
+                {goalMessage && <p role="status" className="muted" style={{ marginTop: '8px' }}>{goalMessage}</p>}
               </div>
 
               {filter === 'Monthly' && (
@@ -575,12 +676,10 @@ export default function StatsPage() {
             >
               Close
             </button>
-            <button 
-              onClick={handleDownload}
-              style={{ background: 'var(--volt)', border: 'none', color: '#000', padding: '8px 20px', borderRadius: '20px', fontWeight: 700, cursor: 'pointer' }}
-            >
-              Save as Image
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleDownload} style={{ background: '#222', border: '1px solid #555', color: '#fff', padding: '8px 14px', borderRadius: '20px', fontWeight: 700, cursor: 'pointer' }}>Save</button>
+              <button onClick={handleShare} style={{ background: 'var(--volt)', border: 'none', color: '#000', padding: '8px 16px', borderRadius: '20px', fontWeight: 700, cursor: 'pointer' }}>Share</button>
+            </div>
           </div>
           <div ref={reportRef}>
             {reportData && <InfographicReport key={reportData.month + reportData.totalRuns} data={reportData} />}
