@@ -50,6 +50,8 @@ type ReportData = {
   goalPercent: number
 }
 
+type Totals = { distance: number; duration: number; pace: number; heartRate: number; runs: number }
+
 const isoDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
@@ -81,6 +83,8 @@ export default function RunsPage() {
   const supabase = useMemo(() => createClient(), [])
   const [filter, setFilter] = useState<FilterType>('Weekly')
   const [viewingMonth, setViewingMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+  const [allTimeWindow, setAllTimeWindow] = useState(0)
+  const [allTimeTotals, setAllTimeTotals] = useState<Totals>({ distance: 0, duration: 0, pace: 0, heartRate: 0, runs: 0 })
   const [runs, setRuns] = useState<Run[]>([])
   const [reports, setReports] = useState<ImportReport[]>([])
   const [weeklyGoal, setWeeklyGoal] = useState(40)
@@ -121,6 +125,11 @@ export default function RunsPage() {
     } else if (filter === 'Monthly') {
       startDate = isoDate(new Date(viewingMonth.getFullYear(), viewingMonth.getMonth(), 1))
       endDate = isoDate(new Date(viewingMonth.getFullYear(), viewingMonth.getMonth() + 1, 0))
+    } else if (filter === 'All Time') {
+      const windowEnd = new Date(now.getFullYear(), now.getMonth() - allTimeWindow * 6 + 1, 0)
+      const windowStart = new Date(windowEnd.getFullYear(), windowEnd.getMonth() - 5, 1)
+      startDate = isoDate(windowStart)
+      endDate = isoDate(windowEnd)
     }
 
     const collected: Run[] = []
@@ -153,6 +162,23 @@ export default function RunsPage() {
       if (goal.goal_type === 'monthly_distance_km') nextMonthlyGoal = Number(goal.goal_value)
     })
 
+    let nextAllTimeTotals = allTimeTotals
+    if (filter === 'All Time') {
+      const { data, error } = await supabase.rpc('get_my_run_totals')
+      if (error) {
+        if (requestId === loadSequence.current) { setMessage('전체 누적 합계를 불러오지 못했습니다.'); setLoading(false) }
+        return
+      }
+      const row = Array.isArray(data) ? data[0] : data
+      nextAllTimeTotals = {
+        distance: Number(row?.total_distance_km || 0),
+        runs: Number(row?.total_runs || 0),
+        duration: Number(row?.total_duration_sec || 0),
+        pace: Number(row?.avg_pace_sec_per_km || 0),
+        heartRate: Math.round(Number(row?.avg_heart_rate || 0)),
+      }
+    }
+
     let nextComparison: { distance: number; runs: number; label: string } | null = null
     if (filter === 'Monthly') {
       const previousStart = new Date(viewingMonth.getFullYear(), viewingMonth.getMonth() - 1, 1)
@@ -183,12 +209,13 @@ export default function RunsPage() {
     setRuns(collected)
     setWeeklyGoal(nextWeeklyGoal)
     setMonthlyGoal(nextMonthlyGoal)
+    setAllTimeTotals(nextAllTimeTotals)
     if (reportRows) setReports(reportRows as ImportReport[])
     setComparison(nextComparison)
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [filter, viewingMonth])
+  useEffect(() => { load() }, [filter, viewingMonth, allTimeWindow])
 
   const totals = useMemo(() => {
     let distance = 0, duration = 0, pacedDistance = 0, pacedDuration = 0, heartRate = 0, heartRateCount = 0
@@ -376,6 +403,10 @@ export default function RunsPage() {
   const comparisonRuns = comparison?.runs ? Math.round(((runs.length - comparison.runs) / comparison.runs) * 100) : null
   const maxChart = Math.max(...chartData.map(item => item.val), 10)
   const runDates = new Set(runs.map(run => run.activity_date))
+  const displayedTotals = filter === 'All Time' ? allTimeTotals : { ...totals, runs: runs.length }
+  const allTimeEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - allTimeWindow * 6 + 1, 0)
+  const allTimeStart = new Date(allTimeEnd.getFullYear(), allTimeEnd.getMonth() - 5, 1)
+  const allTimeRangeLabel = `${allTimeStart.toLocaleDateString('default', { month: 'short', year: 'numeric' })} – ${allTimeEnd.toLocaleDateString('default', { month: 'short', year: 'numeric' })}`
 
   return <div className="content active">
     <div className="filter-chips period-filter" aria-label="My Runs period">
@@ -390,13 +421,19 @@ export default function RunsPage() {
       <button disabled={isCurrentMonth} onClick={() => setViewingMonth(new Date(viewingMonth.getFullYear(), viewingMonth.getMonth() + 1, 1))} aria-label="Next month">&rarr;</button>
     </div>}
 
+    {filter === 'All Time' && <div className="period-nav">
+      <button onClick={() => setAllTimeWindow(allTimeWindow + 1)} aria-label="Previous six months">&larr;</button>
+      <strong>{allTimeRangeLabel}</strong>
+      <button disabled={allTimeWindow === 0} onClick={() => setAllTimeWindow(Math.max(0, allTimeWindow - 1))} aria-label="Next six months">&rarr;</button>
+    </div>}
+
     {loading ? <div className="loading-state">Loading runs...</div> : <>
       <div className="stats-grid">
-        <div className="stat-card main"><div className="stat-label">{filter} Distance</div><div className="stat-number">{totals.distance.toFixed(1)} <span className="stat-unit">km</span></div></div>
-        <div className="stat-card"><div className="stat-label">Runs</div><div className="stat-number">{runs.length}</div></div>
-        <div className="stat-card"><div className="stat-label">Avg Pace</div><div className="stat-number">{formatPace(totals.pace)} <span className="stat-unit">/km</span></div></div>
-        <div className="stat-card"><div className="stat-label">Avg HR</div><div className="stat-number">{totals.heartRate || '--'} <span className="stat-unit">bpm</span></div></div>
-        <div className="stat-card"><div className="stat-label">Total Time</div><div className="stat-number small-number">{formatDuration(totals.duration)}</div></div>
+        <div className="stat-card main"><div className="stat-label">{filter} Distance</div><div className="stat-number">{displayedTotals.distance.toFixed(1)} <span className="stat-unit">km</span></div></div>
+        <div className="stat-card"><div className="stat-label">Runs</div><div className="stat-number">{displayedTotals.runs}</div></div>
+        <div className="stat-card"><div className="stat-label">Avg Pace</div><div className="stat-number">{formatPace(displayedTotals.pace)} <span className="stat-unit">/km</span></div></div>
+        <div className="stat-card"><div className="stat-label">Avg HR</div><div className="stat-number">{displayedTotals.heartRate || '--'} <span className="stat-unit">bpm</span></div></div>
+        <div className="stat-card"><div className="stat-label">Total Time</div><div className="stat-number small-number">{formatDuration(displayedTotals.duration)}</div></div>
       </div>
 
       {filter === 'Monthly' && comparison && <div className="comparison-card">
@@ -444,7 +481,7 @@ export default function RunsPage() {
     {message && <p className="status-message" role="status">{message}</p>}
 
     <section className="chart-section">
-      <h2 className="section-title">Runs · {filter}</h2>
+      <h2 className="section-title">{filter === 'All Time' ? `Runs · ${allTimeRangeLabel}` : `Runs · ${filter}`}</h2>
       {!loading && runs.length === 0 ? <div className="empty-card">이 기간에 등록된 러닝이 없습니다.</div> :
         <div className="run-list">{runs.map(run => <article className="run-card" key={run.id}>
           <div>
