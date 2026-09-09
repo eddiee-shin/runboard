@@ -95,6 +95,7 @@ export default function RunsPage() {
   const [showInfographic, setShowInfographic] = useState(false)
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
+  const loadSequence = useRef(0)
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('filter')
@@ -102,10 +103,11 @@ export default function RunsPage() {
   }, [])
 
   const load = async () => {
+    const requestId = ++loadSequence.current
     setLoading(true)
     setMessage('')
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
+    if (!user) { if (requestId === loadSequence.current) setLoading(false); return }
 
     const now = new Date()
     let startDate: string | null = null
@@ -129,11 +131,13 @@ export default function RunsPage() {
       if (startDate) query = query.gte('activity_date', startDate)
       if (endDate) query = query.lte('activity_date', endDate)
       const { data, error } = await query.order('activity_date', { ascending: false }).order('id').range(offset, offset + 499)
-      if (error) { setMessage('기록을 불러오지 못했습니다.'); break }
+      if (error) {
+        if (requestId === loadSequence.current) { setMessage('기록을 불러오지 못했습니다.'); setLoading(false) }
+        return
+      }
       collected.push(...((data || []) as Run[]))
       if (!data || data.length < 500) break
     }
-    setRuns(collected)
 
     const [{ data: goals }, { data: reportRows }] = await Promise.all([
       supabase.from('running_goals').select('goal_type, goal_value').eq('profile_id', user.id)
@@ -142,12 +146,14 @@ export default function RunsPage() {
         .select('id, source, label, total_count, imported_count, duplicate_count, skipped_count, error_count, details, created_at')
         .eq('profile_id', user.id).order('created_at', { ascending: false }).limit(12),
     ])
+    let nextWeeklyGoal = weeklyGoal
+    let nextMonthlyGoal = monthlyGoal
     ;(goals as { goal_type: string; goal_value: number }[] | null)?.forEach(goal => {
-      if (goal.goal_type === 'weekly_distance_km') setWeeklyGoal(Number(goal.goal_value))
-      if (goal.goal_type === 'monthly_distance_km') setMonthlyGoal(Number(goal.goal_value))
+      if (goal.goal_type === 'weekly_distance_km') nextWeeklyGoal = Number(goal.goal_value)
+      if (goal.goal_type === 'monthly_distance_km') nextMonthlyGoal = Number(goal.goal_value)
     })
-    if (reportRows) setReports(reportRows as ImportReport[])
 
+    let nextComparison: { distance: number; runs: number; label: string } | null = null
     if (filter === 'Monthly') {
       const previousStart = new Date(viewingMonth.getFullYear(), viewingMonth.getMonth() - 1, 1)
       const selectedIsCurrent = viewingMonth.getFullYear() === now.getFullYear() && viewingMonth.getMonth() === now.getMonth()
@@ -164,15 +170,21 @@ export default function RunsPage() {
         previousRuns.push(...(data || []))
         if (!data || data.length < 500) break
       }
-      setComparison({
+      nextComparison = {
         distance: previousRuns.reduce((sum, run) => sum + Number(run.distance_km || 0), 0),
         runs: previousRuns.length,
         label: selectedIsCurrent
           ? `${previousStart.toLocaleString('default', { month: 'short' })} 1–${throughDay}`
           : previousStart.toLocaleString('default', { month: 'long', year: 'numeric' }),
-      })
-    } else setComparison(null)
+      }
+    }
 
+    if (requestId !== loadSequence.current) return
+    setRuns(collected)
+    setWeeklyGoal(nextWeeklyGoal)
+    setMonthlyGoal(nextMonthlyGoal)
+    if (reportRows) setReports(reportRows as ImportReport[])
+    setComparison(nextComparison)
     setLoading(false)
   }
 
