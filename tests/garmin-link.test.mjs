@@ -12,6 +12,7 @@ test('accepts canonical Garmin activity URLs only', () => {
   assert.equal(parseGarminActivityUrl(shared), id)
   assert.equal(extractGarminActivityUrl(shared), `https://connect.garmin.com/modern/activity/${id}`)
   assert.equal(extractGarminActivityUrl(`활동 링크: https://connect.garmin.com/app/activity/${id}?utm_source=share.`), `https://connect.garmin.com/modern/activity/${id}`)
+  assert.equal(extractGarminActivityUrl(`https://connect\u200B.garmin.com/modern/activity/${id}`), `https://connect.garmin.com/modern/activity/${id}`)
   assert.throws(() => parseGarminActivityUrl(`https://example.com/modern/activity/${id}`))
   assert.throws(() => parseGarminActivityUrl('https://connect.garmin.com/modern/profile/test'))
 })

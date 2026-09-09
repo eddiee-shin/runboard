@@ -505,7 +505,14 @@ header {
   line-height: 1.5;
   resize: vertical;
   overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
+
+.garmin-link-detected { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(212,255,0,.07); border: 1px solid rgba(212,255,0,.22); }
+.garmin-link-detected span { display: block; color: var(--volt); font-size: .75rem; font-weight: 700; margin-bottom: 5px; }
+.garmin-link-detected code { display: block; color: var(--text-primary); font-size: .78rem; overflow-wrap: anywhere; word-break: break-all; white-space: normal; }
+.garmin-link-hint { color: #ff9f68; font-size: .8rem; margin: 9px 2px 0; }
 
 .action-btn {
   width: 100%;

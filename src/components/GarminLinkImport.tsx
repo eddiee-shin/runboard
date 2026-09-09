@@ -13,18 +13,19 @@ const duration = (seconds: number) => {
 }
 
 export default function GarminLinkImport() {
-  const [url, setUrl] = useState('')
+  const [sharedText, setSharedText] = useState('')
   const [activity, setActivity] = useState<GarminLinkActivity | null>(null)
   const [existing, setExisting] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const parsedUrl = extractGarminActivityUrl(sharedText)
   const request = async (preview: boolean) => {
     setBusy(true); setError('')
     try {
       const response = await fetch('/api/import/garmin-link', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, preview }),
+        body: JSON.stringify({ url: parsedUrl || sharedText.trim(), preview }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || '요청에 실패했습니다.')
@@ -39,15 +40,17 @@ export default function GarminLinkImport() {
       <label className="form-label" htmlFor="garmin-link">Garmin Connect 활동 링크</label>
       <textarea id="garmin-link" className="form-input garmin-link-textarea" rows={5}
         placeholder={'가민 앱에서 복사한 공유 문구 전체를 붙여넣으세요.\n예: Check out my running activity on Garmin Connect. https://connect.garmin.com/modern/activity/...'}
-        value={url} disabled={busy} spellCheck={false}
+        value={sharedText} disabled={busy} spellCheck={false} autoCapitalize="none" autoCorrect="off" wrap="soft"
         onChange={e => {
-          const value = e.target.value
-          setUrl(extractGarminActivityUrl(value) || value)
+          setSharedText(e.target.value)
           setActivity(null); setExisting(false); setSaved(false); setError('')
         }} />
+      {sharedText && (parsedUrl
+        ? <div className="garmin-link-detected"><span>인식된 활동 주소</span><code>{parsedUrl}</code></div>
+        : <p className="garmin-link-hint">아직 Garmin 활동 주소를 찾지 못했습니다.</p>)}
     </div>
     {error && <p role="alert" style={{ color: '#ff7777' }}>{error}</p>}
-    {!activity && <button className="action-btn" disabled={busy || !url.trim()} onClick={() => request(true)}>
+    {!activity && <button className="action-btn" disabled={busy || !parsedUrl} onClick={() => request(true)}>
       {busy ? '불러오는 중...' : 'GARMIN 활동 불러오기'}
     </button>}
     {activity && <>

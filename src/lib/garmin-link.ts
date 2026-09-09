@@ -16,7 +16,9 @@ export type GarminLinkActivity = {
 }
 
 export function extractGarminActivityUrl(value: string): string | null {
-  const match = /https:\/\/connect\.garmin\.com\/(?:modern\/|app\/)?activity\/\d+(?:[/?#][^\s]*)?/i.exec(value)
+  // iOS share sheets can insert invisible Unicode characters into copied text.
+  const normalized = value.replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+  const match = /https:\/\/connect\.garmin\.com\/(?:modern\/|app\/)?activity\/\d+(?:[/?#][^\s]*)?/i.exec(normalized)
   if (!match) return null
   const candidate = match[0].replace(/[),.;!?]+$/, '')
   let url: URL
