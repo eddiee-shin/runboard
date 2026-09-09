@@ -37,8 +37,9 @@ export default function GarminLinkImport() {
     <p>공개 범위가 <strong>모두</strong>인 Garmin Connect 활동 링크를 붙여넣으세요. 가민 앱에서 복사한 공유 문구 전체를 붙여넣어도 링크만 자동으로 추출합니다.</p>
     <div className="form-group">
       <label className="form-label" htmlFor="garmin-link">Garmin Connect 활동 링크</label>
-      <input id="garmin-link" className="form-input" type="url"
-        placeholder="https://connect.garmin.com/modern/activity/..." value={url} disabled={busy}
+      <textarea id="garmin-link" className="form-input garmin-link-textarea" rows={5}
+        placeholder={'가민 앱에서 복사한 공유 문구 전체를 붙여넣으세요.\n예: Check out my running activity on Garmin Connect. https://connect.garmin.com/modern/activity/...'}
+        value={url} disabled={busy} spellCheck={false}
         onChange={e => {
           const value = e.target.value
           setUrl(extractGarminActivityUrl(value) || value)
