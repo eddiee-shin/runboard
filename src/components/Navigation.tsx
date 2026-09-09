@@ -20,15 +20,9 @@ export default function Navigation() {
       >
         Leaderboard
       </Link>
-      <Link 
-        href="/stats" 
-        className={`tab-btn ${pathname === '/stats' ? 'active' : ''}`}
-      >
-        Stats
-      </Link>
       <Link
         href="/runs"
-        className={`tab-btn ${pathname === '/runs' ? 'active' : ''}`}
+        className={`tab-btn ${pathname === '/runs' || pathname === '/stats' ? 'active' : ''}`}
       >
         My Runs
       </Link>

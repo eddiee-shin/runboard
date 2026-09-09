@@ -64,7 +64,7 @@ export default function GarminLinkImport() {
         : <button className="action-btn" disabled={busy || saved} onClick={() => request(false)}>
           {busy ? '저장 중...' : saved ? '저장 완료' : '이 러닝 저장'}
         </button>}
-      {saved && <p role="status">저장 완료 · <Link href="/stats?filter=Monthly">월간 통계</Link> · <Link href="/runs">가져오기 보고서</Link></p>}
+      {saved && <p role="status">저장 완료 · <Link href="/runs?filter=Monthly">월간 통계</Link> · <Link href="/runs">가져오기 보고서</Link></p>}
     </>}
   </section>
 }
