@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import type { ClipboardEvent as ReactClipboardEvent } from 'react'
 import Link from 'next/link'
 import type { GarminLinkActivity } from '@/lib/garmin-link'
-import { extractGarminActivityUrl } from '@/lib/garmin-link'
+import { extractGarminActivityUrl, mergeGarminClipboardText } from '@/lib/garmin-link'
 
 const duration = (seconds: number) => {
   const h = Math.floor(seconds / 3600)
@@ -20,6 +21,49 @@ export default function GarminLinkImport() {
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
   const parsedUrl = extractGarminActivityUrl(sharedText)
+  const resetPreview = () => { setActivity(null); setExisting(false); setSaved(false); setError('') }
+
+  const handlePaste = (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
+    const plain = event.clipboardData.getData('text/plain')
+    const alternates = [
+      event.clipboardData.getData('text/uri-list'),
+      event.clipboardData.getData('text/html'),
+    ].filter(Boolean)
+    const merged = mergeGarminClipboardText(plain, alternates)
+    if (!extractGarminActivityUrl(merged)) return
+
+    event.preventDefault()
+    const start = event.currentTarget.selectionStart
+    const end = event.currentTarget.selectionEnd
+    setSharedText(`${sharedText.slice(0, start)}${merged}${sharedText.slice(end)}`)
+    resetPreview()
+  }
+
+  const pasteFromClipboard = async () => {
+    setError('')
+    try {
+      const pieces: { type: string; text: string }[] = []
+      if (navigator.clipboard.read) {
+        const items = await navigator.clipboard.read()
+        for (const item of items) {
+          for (const type of item.types) {
+            if (!type.startsWith('text/')) continue
+            pieces.push({ type, text: await (await item.getType(type)).text() })
+          }
+        }
+      } else {
+        pieces.push({ type: 'text/plain', text: await navigator.clipboard.readText() })
+      }
+      const plain = pieces.find(piece => piece.type === 'text/plain')?.text || ''
+      const merged = mergeGarminClipboardText(plain, pieces.filter(piece => piece.type !== 'text/plain').map(piece => piece.text))
+      setSharedText(merged)
+      resetPreview()
+      if (!extractGarminActivityUrl(merged)) setError('클립보드에서 Garmin 활동 주소를 찾지 못했습니다.')
+    } catch {
+      setError('클립보드를 읽을 수 없습니다. 입력창을 길게 눌러 붙여넣어 주세요.')
+    }
+  }
+
   const request = async (preview: boolean) => {
     setBusy(true); setError('')
     try {
@@ -38,12 +82,14 @@ export default function GarminLinkImport() {
     <p>공개 범위가 <strong>모두</strong>인 Garmin Connect 활동 링크를 붙여넣으세요. 가민 앱에서 복사한 공유 문구 전체를 붙여넣어도 링크만 자동으로 추출합니다.</p>
     <div className="form-group">
       <label className="form-label" htmlFor="garmin-link">Garmin Connect 활동 링크</label>
+      <button type="button" className="clipboard-btn" onClick={pasteFromClipboard}>클립보드에서 가져오기</button>
       <textarea id="garmin-link" className="form-input garmin-link-textarea" rows={5}
         placeholder={'가민 앱에서 복사한 공유 문구 전체를 붙여넣으세요.\n예: Check out my running activity on Garmin Connect. https://connect.garmin.com/modern/activity/...'}
         value={sharedText} disabled={busy} spellCheck={false} autoCapitalize="none" autoCorrect="off" wrap="soft"
+        onPaste={handlePaste}
         onChange={e => {
           setSharedText(e.target.value)
-          setActivity(null); setExisting(false); setSaved(false); setError('')
+          resetPreview()
         }} />
       {sharedText && (parsedUrl
         ? <div className="garmin-link-detected"><span>인식된 활동 주소</span><code>{parsedUrl}</code></div>

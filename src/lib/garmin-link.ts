@@ -30,6 +30,16 @@ export function extractGarminActivityUrl(value: string): string | null {
   return `https://connect.garmin.com/modern/activity/${pathMatch[1]}`
 }
 
+export function mergeGarminClipboardText(plainText: string, alternateFormats: string[] = []): string {
+  const plain = plainText.trim()
+  const activityUrl = [plainText, ...alternateFormats]
+    .map(value => extractGarminActivityUrl(value.replace(/&amp;/g, '&')))
+    .find((value): value is string => Boolean(value))
+
+  if (!activityUrl || extractGarminActivityUrl(plain)) return plain
+  return plain ? `${plain}\n${activityUrl}` : activityUrl
+}
+
 export function parseGarminActivityUrl(value: string): string {
   const extracted = extractGarminActivityUrl(value)
   if (!extracted) throw new Error('Garmin Connect 활동 링크를 확인해주세요.')
