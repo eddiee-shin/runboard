@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import GarminCsvImport from '@/components/GarminCsvImport'
 import GarminLinkImport from '@/components/GarminLinkImport'
+import { getGarminImportUrl } from '@/lib/garmin-link'
 
 // Helper: Format seconds to HH:MM:SS
 const formatDuration = (sec: number) => {
@@ -59,6 +60,7 @@ export default function UploadPage() {
   const supabase = createClient()
   
   const [mode, setMode] = useState<'photo' | 'manual' | 'garmin-link' | 'csv'>('photo')
+  const [initialGarminUrl, setInitialGarminUrl] = useState('')
   const [appSource, setAppSource] = useState('nike')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -87,6 +89,13 @@ export default function UploadPage() {
   // Fetch user context on mount
   useEffect(() => {
     fetchUserContext()
+  }, [])
+
+  useEffect(() => {
+    const garminUrl = getGarminImportUrl(window.location.search)
+    if (!garminUrl) return
+    setInitialGarminUrl(garminUrl)
+    setMode('garmin-link')
   }, [])
 
   const fetchUserContext = async () => {
@@ -482,7 +491,7 @@ export default function UploadPage() {
         </div>
       )}
 
-      {mode === 'garmin-link' && <GarminLinkImport />}
+      {mode === 'garmin-link' && <GarminLinkImport initialUrl={initialGarminUrl} />}
       {mode === 'csv' && <GarminCsvImport />}
     </div>
   )

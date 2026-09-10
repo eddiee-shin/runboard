@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent } from 'react'
 import Link from 'next/link'
 import type { GarminLinkActivity } from '@/lib/garmin-link'
@@ -13,8 +13,8 @@ const duration = (seconds: number) => {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export default function GarminLinkImport() {
-  const [sharedText, setSharedText] = useState('')
+export default function GarminLinkImport({ initialUrl = '' }: { initialUrl?: string }) {
+  const [sharedText, setSharedText] = useState(initialUrl)
   const [activity, setActivity] = useState<GarminLinkActivity | null>(null)
   const [existing, setExisting] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -22,6 +22,15 @@ export default function GarminLinkImport() {
   const [saved, setSaved] = useState(false)
   const parsedUrl = extractGarminActivityUrl(sharedText)
   const resetPreview = () => { setActivity(null); setExisting(false); setSaved(false); setError('') }
+
+  useEffect(() => {
+    if (!initialUrl) return
+    setSharedText(initialUrl)
+    setActivity(null)
+    setExisting(false)
+    setSaved(false)
+    setError('')
+  }, [initialUrl])
 
   const handlePaste = (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
     const plain = event.clipboardData.getData('text/plain')

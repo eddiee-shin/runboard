@@ -30,6 +30,12 @@ export function extractGarminActivityUrl(value: string): string | null {
   return `https://connect.garmin.com/modern/activity/${pathMatch[1]}`
 }
 
+export function getGarminImportUrl(search: string): string | null {
+  const sharedValue = new URLSearchParams(search).get('url')
+  if (!sharedValue || sharedValue.length > 10_000) return null
+  return extractGarminActivityUrl(sharedValue)
+}
+
 export function mergeGarminClipboardText(plainText: string, alternateFormats: string[] = []): string {
   const plain = plainText.trim()
   const activityUrl = [plainText, ...alternateFormats]
